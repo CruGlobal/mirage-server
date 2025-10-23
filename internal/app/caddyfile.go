@@ -7,10 +7,10 @@ import (
 )
 
 func init() {
-	httpcaddyfile.RegisterGlobalOption("mirage", ParseRedirector)
+	httpcaddyfile.RegisterGlobalOption("mirage", ParseMirage)
 }
 
-// ParseRedirector sets up the App from Caddyfile tokens. Syntax:
+// ParseMirage sets up the App from Caddyfile tokens. Syntax:
 //
 //	{
 //	    mirage {
@@ -20,7 +20,7 @@ func init() {
 //	        key <key_name>
 //	    }
 //	}
-func ParseRedirector(d *caddyfile.Dispenser, _ any) (any, error) {
+func ParseMirage(d *caddyfile.Dispenser, _ any) (any, error) {
 	app := new(App)
 
 	for d.Next() {

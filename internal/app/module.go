@@ -10,7 +10,7 @@ import (
 const (
 	AppName       = "mirage"
 	DefaultRegion = "us-east-1"
-	DefaultTable  = "RedirectorConfigProd"
+	DefaultTable  = "MirageServerConfigProd"
 	DefaultKey    = "Hostname"
 )
 

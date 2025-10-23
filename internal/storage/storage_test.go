@@ -22,7 +22,7 @@ func (ts *StorageTestSuite) SetupSuite() {
 	ctx := miragetest.NewMirageCaddyContext(ts.T())
 
 	dbs := storage.NewDynamoDBStorage()
-	dbs.Table = "RedirectorCertsTesting"
+	dbs.Table = "MirageServerCertificatesTesting"
 	err := dbs.Provision(ctx)
 	ts.Require().NoError(err)
 

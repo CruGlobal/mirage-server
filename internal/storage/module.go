@@ -23,7 +23,7 @@ var (
 )
 
 const (
-	DefaultTable  = "RedirectorCertsProd"
+	DefaultTable  = "MirageServerCertificatesProd"
 	LeaseDuration = 15 * time.Second
 )
 

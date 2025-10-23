@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParseRedirector(t *testing.T) {
+func TestParseMirage(t *testing.T) {
 	testcases := []struct {
 		name      string
 		d         *caddyfile.Dispenser
@@ -95,7 +95,7 @@ func TestParseRedirector(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			app, err := mirage.ParseRedirector(tc.d, nil)
+			app, err := mirage.ParseMirage(tc.d, nil)
 			if err != nil {
 				if !tc.shouldErr {
 					t.Fatalf("unexpected error: %v", err)

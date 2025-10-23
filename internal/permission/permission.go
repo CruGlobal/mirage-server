@@ -69,21 +69,21 @@ func (p *Permission) Provision(ctx caddy.Context) error {
 		return err
 	}
 
-	redirectorApp, ok := module.(*app.App)
+	mirageApp, ok := module.(*app.App)
 	if !ok {
 		return fmt.Errorf("unexpected module type: %T", module)
 	}
-	if redirectorApp == nil {
+	if mirageApp == nil {
 		return errors.New("mirage has not been initialized")
 	}
 
-	if redirectorApp.Client == nil {
+	if mirageApp.Client == nil {
 		return errors.New("DynamoDB client has not been initialized")
 	}
 
-	p.Client = redirectorApp.Client
-	p.Table = redirectorApp.Table
-	p.Key = redirectorApp.Key
+	p.Client = mirageApp.Client
+	p.Table = mirageApp.Table
+	p.Key = mirageApp.Key
 
 	return nil
 }
