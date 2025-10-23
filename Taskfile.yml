@@ -1,0 +1,62 @@
+# https://taskfile.dev
+
+version: '3'
+
+tasks:
+  default:
+    cmds:
+      - task: fmt
+      - task: lint
+
+  build:
+    desc: Build the mirage app
+    cmds:
+      - go build -v -o mirage ./cmd/mirage
+
+  fmt:
+    desc: Format the code
+    cmds:
+      - golangci-lint fmt
+
+  lint:
+    desc: Lint the code
+    cmds:
+      - golangci-lint run --fix
+
+  run:
+    desc: Run the mirage app locally
+    env:
+      AWS_ACCESS_KEY_ID: DEVELOPMENTACCESSKEYID
+      AWS_SECRET_ACCESS_KEY: DEVELOPMENTSECRETACCESSKEY
+    cmds:
+      - go run ./cmd/mirage run --config assets/config/Caddyfile
+
+  "mirage:fmt":
+    desc: Format Caddyfile using mirage
+    cmds:
+      - go run ./cmd/mirage fmt --overwrite --config Caddyfile
+
+  test:
+    desc: Run tests
+    env:
+      AWS_ACCESS_KEY_ID: TESTINGACCESSKEYID
+      AWS_SECRET_ACCESS_KEY: TESTINGSECRETACCESSKEY
+      DYNAMODB_TESTING_ENDPOINT: http://localhost:8000
+      DYNAMODB_TESTING_REGION: local
+      DYNAMODB_TESTING_TABLE: RedirectorConfigTest
+      DYNAMODB_TESTING_KEY: Hostname
+    silent: true
+    cmds:
+      - task: dynamodb:start
+      - defer: task dynamodb:stop
+      - go test -cover -coverprofile=coverage.out -covermode=atomic -timeout=120s {{.CLI_ARGS}} ./...
+
+  "dynamodb:start":
+    desc: Start the DynamoDB Local container. Used for tests or local development.
+    cmds:
+      - docker compose -f compose.yml up -d
+
+  "dynamodb:stop":
+    desc: Stop the DynamoDB Local container (all data is lost)
+    cmds:
+      - docker compose -f compose.yml down

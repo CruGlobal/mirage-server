@@ -1,0 +1,96 @@
+# Global config
+{
+	# Email address used with Let's Encrypt
+	email {$MIRAGE_TLS_EMAIL}
+
+	# Log in JSON by default
+	log {
+		level {$MIRAGE_LOG_LEVEL}
+		output stdout
+		format json
+		exclude tls.handshake events
+	}
+
+	# Caddy is run in a container so we don't need to persist the config
+	persist_config off
+
+	# Set ordering of mirage module earlier in the request processing
+	order mirage before redir
+
+	# Configure Mirage Server
+	mirage {
+		region us-east-1
+		table {$DYNAMODB_CONFIG_TABLE}
+		key {$DYNAMODB_CONFIG_KEY}
+	}
+
+	acme_ca {$MIRAGE_ACME_CA}
+	on_demand_tls {
+		# Check DynamoDB for on demand certificate permission
+		permission dynamodb
+	}
+
+	servers {
+		# Set real ip if request forwarded from VPC (vpc-dc2d9fb9) CIDR
+		trusted_proxies static private_ranges 10.16.0.0/16
+	}
+
+	# Store certificates in DynamoDB
+	storage dynamodb {
+		table {$DYNAMODB_CERTS_TABLE}
+	}
+	storage_clean_interval 30d
+}
+
+# Reusable snippet for responding to load balancer health checks
+(health_check) {
+	handle /.ping {
+		log_skip
+		respond "pong" 200 {
+			close
+		}
+	}
+}
+
+# AWS Health Check Server. Uses local certs instead of on_demand
+172.16.0.0/12:443 {
+	tls {
+		local
+	}
+	route {
+		# respond to health checks
+		import health_check
+
+		respond "OK" 200 {
+			close
+		}
+	}
+}
+
+# Default server on port 80 (http)
+:80 {
+	route {
+		# respond to health checks
+		import health_check
+
+		# Redirect all requests to HTTPS
+		redir https:// {host} {uri} permanent
+	}
+}
+
+# Default server on port 443 (https)
+:443 {
+	# Enable on_demand TLS, first using Let'ts Encrypt (acme), then internal fallback
+	tls {
+		on_demand
+		issuer acme
+	}
+
+	route {
+		# respond to health checks
+		import health_check
+
+		# Use Mirage Server to redirect or proxy requests
+		mirage
+	}
+}
