@@ -1,7 +1,6 @@
 package permission_test
 
 import (
-	"os"
 	"testing"
 
 	"github.com/CruGlobal/mirage-server/internal/app"
@@ -15,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	tcddb "github.com/testcontainers/testcontainers-go/modules/dynamodb"
 )
 
 func TestPermission_NewPermission(t *testing.T) {
@@ -83,30 +83,51 @@ func TestPermission_UnmarshalCaddyfile(t *testing.T) {
 }
 
 func TestPermission_Provision(t *testing.T) {
-	ctx := miragetest.NewMirageCaddyContext(t)
+	ctx := miragetest.NewMirageCaddyContext(t, miragetest.TestConfig{
+		Region:   "us-east-1",
+		Endpoint: "http://example.com:8000",
+		Table:    "MirageServerConfigTest",
+		Key:      "Hostname",
+	})
 
 	perm := permission.NewPermission()
 	err := perm.Provision(ctx)
 	require.NoError(t, err)
 
 	assert.NotNil(t, perm.Client)
-	assert.Equal(t, os.Getenv("DYNAMODB_TESTING_TABLE"), perm.Table)
-	assert.Equal(t, os.Getenv("DYNAMODB_TESTING_KEY"), perm.Key)
+	assert.Equal(t, "MirageServerConfigTest", perm.Table)
+	assert.Equal(t, "Hostname", perm.Key)
 }
 
 type PermissionTestSuite struct {
 	suite.Suite
 
 	permission *permission.Permission
+	ddbc       *tcddb.DynamoDBContainer
 }
 
 func (ts *PermissionTestSuite) SetupSuite() {
-	ctx := miragetest.NewMirageCaddyContext(ts.T())
+	endpoint, ddbc := miragetest.CreateDynamoDBContainer(ts.T())
+	ts.ddbc = ddbc
+
+	ctx := miragetest.NewMirageCaddyContext(ts.T(), miragetest.TestConfig{
+		Region:   "us-east-1",
+		Endpoint: endpoint,
+		Table:    "MirageServerConfigTest",
+		Key:      "Hostname",
+	})
 
 	perm := permission.NewPermission()
 	err := perm.Provision(ctx)
 	ts.Require().NoError(err)
 	ts.permission = perm
+}
+
+func (ts *PermissionTestSuite) TearDownSuite() {
+	if ts.ddbc != nil {
+		err := ts.ddbc.Terminate(ts.T().Context())
+		ts.Require().NoError(err)
+	}
 }
 
 func (ts *PermissionTestSuite) SetupTest() {

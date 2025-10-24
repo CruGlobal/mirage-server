@@ -1,6 +1,7 @@
 package storage_test
 
 import (
+	"fmt"
 	"path"
 	"sync"
 
@@ -28,7 +29,14 @@ func (ts *StorageTestSuite) TestStorage_TwoLocks() {
 	// Create a second storage instance using the same DynamoDB Table
 	dbs2 := storage.NewDynamoDBStorage()
 	dbs2.Table = ts.dbs.Table
-	err := dbs2.Provision(miragetest.NewMirageCaddyContext(ts.T()))
+	endpoint, err := ts.ddbc.ConnectionString(ctx)
+	ts.Require().NoError(err)
+	err = dbs2.Provision(miragetest.NewMirageCaddyContext(ts.T(), miragetest.TestConfig{
+		Region:   "us-east-1",
+		Endpoint: fmt.Sprintf("http://%s", endpoint),
+		Table:    "MirageServerConfigTest",
+		Key:      "Hostname",
+	}))
 	ts.Require().NoError(err)
 
 	// Test successful lock acquisition

@@ -2,7 +2,6 @@ package miragetest
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -12,9 +11,17 @@ import (
 	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
 	"github.com/caddyserver/caddy/v2/caddyconfig/httpcaddyfile"
 	"github.com/stretchr/testify/require"
+	tcddb "github.com/testcontainers/testcontainers-go/modules/dynamodb"
 )
 
-func NewMirageCaddyContext(t *testing.T) caddy.Context {
+type TestConfig struct {
+	Region   string
+	Endpoint string
+	Table    string
+	Key      string
+}
+
+func NewMirageCaddyContext(t *testing.T, config TestConfig) caddy.Context {
 	t.Helper()
 
 	caddyfileInput := fmt.Sprintf(`{
@@ -29,10 +36,10 @@ func NewMirageCaddyContext(t *testing.T) caddy.Context {
 	}
 }
 `,
-		os.Getenv("DYNAMODB_TESTING_REGION"),
-		os.Getenv("DYNAMODB_TESTING_ENDPOINT"),
-		os.Getenv("DYNAMODB_TESTING_TABLE"),
-		os.Getenv("DYNAMODB_TESTING_KEY"),
+		config.Region,
+		config.Endpoint,
+		config.Table,
+		config.Key,
 	)
 	adapter := caddyfile.Adapter{ServerType: &httpcaddyfile.ServerType{}}
 	adaptedJSON, warnings, err := adapter.Adapt([]byte(caddyfileInput), nil)
@@ -49,8 +56,20 @@ func NewMirageCaddyContext(t *testing.T) caddy.Context {
 	return ctx
 }
 
+func CreateDynamoDBContainer(t *testing.T) (string, *tcddb.DynamoDBContainer) {
+	t.Helper()
+	ddbc, err := tcddb.Run(t.Context(), "amazon/dynamodb-local:latest", tcddb.WithDisableTelemetry())
+	require.NoError(t, err)
+
+	var endpoint string
+	endpoint, err = ddbc.ConnectionString(t.Context())
+	require.NoError(t, err)
+	return fmt.Sprintf("http://%s", endpoint), ddbc
+}
+
 func CreateDynamoDBTable(t *testing.T, client *dynamodb.Client, table string, key string) {
 	t.Helper()
+	t.Logf("create dynamodb table %s with key %s", table, key)
 	_, err := client.CreateTable(t.Context(), &dynamodb.CreateTableInput{
 		TableName:   aws.String(table),
 		BillingMode: types.BillingModePayPerRequest,
@@ -72,6 +91,7 @@ func CreateDynamoDBTable(t *testing.T, client *dynamodb.Client, table string, ke
 
 func DeleteDynamoDBTable(t *testing.T, client *dynamodb.Client, table string) {
 	t.Helper()
+	t.Logf("delete dynamodb table %s", table)
 	_, err := client.DeleteTable(t.Context(), &dynamodb.DeleteTableInput{
 		TableName: aws.String(table),
 	})
