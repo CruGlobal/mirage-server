@@ -28,11 +28,19 @@ func TestStorage_CaddyModule(t *testing.T) {
 }
 
 func TestStorage_Provision(t *testing.T) {
-	ctx := miragetest.NewMirageCaddyContext(t)
+	ctx := miragetest.NewMirageCaddyContext(t, miragetest.TestConfig{
+		Region:   "us-east-1",
+		Endpoint: "http://example.com:8000",
+		Table:    "MirageServerConfigTest",
+		Key:      "Hostname",
+	})
 
 	s := storage2.NewDynamoDBStorage()
+	s.Table = "MirageServerCertificatesTest"
 	err := s.Provision(ctx)
 	require.NoError(t, err)
+	assert.NotNil(t, s.Client)
+	assert.Equal(t, "MirageServerCertificatesTest", s.Table)
 }
 
 func TestStorage_UnmarshalCaddyfile(t *testing.T) {

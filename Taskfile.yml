@@ -41,14 +41,8 @@ tasks:
     env:
       AWS_ACCESS_KEY_ID: TESTINGACCESSKEYID
       AWS_SECRET_ACCESS_KEY: TESTINGSECRETACCESSKEY
-      DYNAMODB_TESTING_ENDPOINT: http://localhost:8000
-      DYNAMODB_TESTING_REGION: local
-      DYNAMODB_TESTING_TABLE: MirageServerConfigTest
-      DYNAMODB_TESTING_KEY: Hostname
     silent: true
     cmds:
-      - task: dynamodb:start
-      - defer: task dynamodb:stop
       - go test -cover -coverprofile coverage.out -covermode atomic -timeout 120s -parallel 1 {{.CLI_ARGS}} ./...
 
   "dynamodb:start":

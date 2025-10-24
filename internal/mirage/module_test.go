@@ -3,7 +3,6 @@ package mirage_test
 import (
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"regexp"
 	"testing"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	tcddb "github.com/testcontainers/testcontainers-go/modules/dynamodb"
 )
 
 func TestMirage_NewMirage(t *testing.T) {
@@ -36,31 +36,52 @@ func TestMirage_CaddyModule(t *testing.T) {
 }
 
 func TestMirage_Provision(t *testing.T) {
-	ctx := miragetest.NewMirageCaddyContext(t)
+	ctx := miragetest.NewMirageCaddyContext(t, miragetest.TestConfig{
+		Region:   "us-east-1",
+		Endpoint: "http://example.com:8000",
+		Table:    "MirageServerConfigTest",
+		Key:      "Hostname",
+	})
 
 	r := mirage.NewMirage()
 	err := r.Provision(ctx)
 	require.NoError(t, err)
 
 	assert.NotNil(t, r.Client)
-	assert.Equal(t, os.Getenv("DYNAMODB_TESTING_TABLE"), r.Table)
-	assert.Equal(t, os.Getenv("DYNAMODB_TESTING_KEY"), r.Key)
+	assert.Equal(t, "MirageServerConfigTest", r.Table)
+	assert.Equal(t, "Hostname", r.Key)
 }
 
 type MirageTestSuite struct {
 	suite.Suite
 
 	mirage *mirage.Mirage
+	ddbc   *tcddb.DynamoDBContainer
 }
 
 func (ts *MirageTestSuite) SetupSuite() {
-	ctx := miragetest.NewMirageCaddyContext(ts.T())
+	endpoint, ddbc := miragetest.CreateDynamoDBContainer(ts.T())
+	ts.ddbc = ddbc
+
+	ctx := miragetest.NewMirageCaddyContext(ts.T(), miragetest.TestConfig{
+		Region:   "us-east-1",
+		Endpoint: endpoint,
+		Table:    "MirageServerConfigTest",
+		Key:      "Hostname",
+	})
 
 	r := mirage.NewMirage()
 	err := r.Provision(ctx)
 	ts.Require().NoError(err)
 
 	ts.mirage = r
+}
+
+func (ts *MirageTestSuite) TearDownSuite() {
+	if ts.ddbc != nil {
+		err := ts.ddbc.Terminate(ts.T().Context())
+		ts.Require().NoError(err)
+	}
 }
 
 //nolint:gochecknoglobals // redirects are global to the test suite

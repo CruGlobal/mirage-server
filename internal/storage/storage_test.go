@@ -10,23 +10,40 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	tcddb "github.com/testcontainers/testcontainers-go/modules/dynamodb"
 )
 
 type StorageTestSuite struct {
 	suite.Suite
 
-	dbs *storage.DynamoDBStorage
+	dbs  *storage.DynamoDBStorage
+	ddbc *tcddb.DynamoDBContainer
 }
 
 func (ts *StorageTestSuite) SetupSuite() {
-	ctx := miragetest.NewMirageCaddyContext(ts.T())
+	endpoint, ddbc := miragetest.CreateDynamoDBContainer(ts.T())
+	ts.ddbc = ddbc
+
+	ctx := miragetest.NewMirageCaddyContext(ts.T(), miragetest.TestConfig{
+		Region:   "us-east-1",
+		Endpoint: endpoint,
+		Table:    "MirageServerConfigTest",
+		Key:      "Hostname",
+	})
 
 	dbs := storage.NewDynamoDBStorage()
-	dbs.Table = "MirageServerCertificatesTesting"
+	dbs.Table = "MirageServerCertificatesTest"
 	err := dbs.Provision(ctx)
 	ts.Require().NoError(err)
 
 	ts.dbs = dbs
+}
+
+func (ts *StorageTestSuite) TearDownSuite() {
+	if ts.ddbc != nil {
+		err := ts.ddbc.Terminate(ts.T().Context())
+		ts.Require().NoError(err)
+	}
 }
 
 // SetupTest creates the table before each test.
