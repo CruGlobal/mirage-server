@@ -106,13 +106,14 @@ func (ts *PermissionTestSuite) SetupSuite() {
 	perm := permission.NewPermission()
 	err := perm.Provision(ctx)
 	ts.Require().NoError(err)
-
-	miragetest.CreateDynamoDBTable(ts.T(), perm.Client, perm.Table, perm.Key)
-
 	ts.permission = perm
 }
 
-func (ts *PermissionTestSuite) TearDownSuite() {
+func (ts *PermissionTestSuite) SetupTest() {
+	miragetest.CreateDynamoDBTable(ts.T(), ts.permission.Client, ts.permission.Table, ts.permission.Key)
+}
+
+func (ts *PermissionTestSuite) TearDownTest() {
 	miragetest.DeleteDynamoDBTable(ts.T(), ts.permission.Client, ts.permission.Table)
 }
 

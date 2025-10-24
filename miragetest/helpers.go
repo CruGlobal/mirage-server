@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/caddyserver/caddy/v2"
@@ -50,17 +49,8 @@ func NewMirageCaddyContext(t *testing.T) caddy.Context {
 	return ctx
 }
 
-func NewDynamoDBClient(t *testing.T) *dynamodb.Client {
-	cfg, err := config.LoadDefaultConfig(
-		t.Context(),
-		config.WithRegion(os.Getenv("DYNAMODB_TESTING_REGION")),
-		config.WithBaseEndpoint(os.Getenv("DYNAMODB_TESTING_ENDPOINT")),
-	)
-	require.NoError(t, err)
-	return dynamodb.NewFromConfig(cfg)
-}
-
 func CreateDynamoDBTable(t *testing.T, client *dynamodb.Client, table string, key string) {
+	t.Helper()
 	_, err := client.CreateTable(t.Context(), &dynamodb.CreateTableInput{
 		TableName:   aws.String(table),
 		BillingMode: types.BillingModePayPerRequest,
@@ -81,6 +71,7 @@ func CreateDynamoDBTable(t *testing.T, client *dynamodb.Client, table string, ke
 }
 
 func DeleteDynamoDBTable(t *testing.T, client *dynamodb.Client, table string) {
+	t.Helper()
 	_, err := client.DeleteTable(t.Context(), &dynamodb.DeleteTableInput{
 		TableName: aws.String(table),
 	})
