@@ -1,0 +1,105 @@
+package permission
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	"github.com/CruGlobal/mirage-server/internal/app"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
+	"go.uber.org/zap"
+
+	"github.com/caddyserver/caddy/v2"
+	"github.com/caddyserver/caddy/v2/modules/caddytls"
+)
+
+var (
+	// Interface guards.
+	_ caddy.Module                = (*Permission)(nil)
+	_ caddy.Provisioner           = (*Permission)(nil)
+	_ caddyfile.Unmarshaler       = (*Permission)(nil)
+	_ caddytls.OnDemandPermission = (*Permission)(nil)
+)
+
+type Permission struct {
+	Table  string           `json:"table,omitempty"`
+	Key    string           `json:"key,omitempty"`
+	Client *dynamodb.Client `json:"-"`
+
+	logger *zap.Logger
+}
+
+func init() {
+	caddy.RegisterModule(Permission{})
+}
+
+func NewPermission() *Permission {
+	return &Permission{
+		Table: app.DefaultTable,
+		Key:   app.DefaultKey,
+	}
+}
+
+func (p Permission) CaddyModule() caddy.ModuleInfo {
+	return caddy.ModuleInfo{
+		ID: "tls.permission.dynamodb",
+		New: func() caddy.Module {
+			return NewPermission()
+		},
+	}
+}
+
+func (p *Permission) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
+	for d.Next() {
+		if d.Next() {
+			return d.ArgErr()
+		}
+	}
+	return nil
+}
+
+func (p *Permission) Provision(ctx caddy.Context) error {
+	p.logger = ctx.Logger(p)
+
+	module, err := ctx.App("mirage")
+	if err != nil {
+		return err
+	}
+
+	mirageApp, ok := module.(*app.App)
+	if !ok {
+		return fmt.Errorf("unexpected module type: %T", module)
+	}
+	if mirageApp == nil {
+		return errors.New("mirage has not been initialized")
+	}
+
+	if mirageApp.Client == nil {
+		return errors.New("DynamoDB client has not been initialized")
+	}
+
+	p.Client = mirageApp.Client
+	p.Table = mirageApp.Table
+	p.Key = mirageApp.Key
+
+	return nil
+}
+
+func (p *Permission) CertificateAllowed(ctx context.Context, name string) error {
+	item, err := p.Client.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String(p.Table),
+		Key: map[string]types.AttributeValue{
+			p.Key: &types.AttributeValueMemberS{Value: name},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("%s: %w (error looking up %w)", name, caddytls.ErrPermissionDenied, err)
+	}
+	if item.Item != nil {
+		return nil
+	}
+	return fmt.Errorf("%s: %w", name, caddytls.ErrPermissionDenied)
+}
