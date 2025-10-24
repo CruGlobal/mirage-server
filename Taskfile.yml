@@ -49,7 +49,7 @@ tasks:
     cmds:
       - task: dynamodb:start
       - defer: task dynamodb:stop
-      - go test -cover -coverprofile=coverage.out -covermode=atomic -timeout=120s {{.CLI_ARGS}} ./...
+      - go test -cover -coverprofile coverage.out -covermode atomic -timeout 120s -parallel 1 {{.CLI_ARGS}} ./...
 
   "dynamodb:start":
     desc: Start the DynamoDB Local container. Used for tests or local development.
