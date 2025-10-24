@@ -8,12 +8,12 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN go build -v -o /usr/bin/mirage ./...
+RUN go build -v -o /usr/bin/mirage ./cmd/mirage
 
 ARG CADDY_VERSION=0
 FROM public.ecr.aws/docker/library/caddy:${CADDY_VERSION}-alpine
 
-COPY --from=builder /usr/bin/redirector /usr/bin/redirector
+COPY --from=builder /usr/bin/mirage /usr/bin/mirage
 
 #LABEL com.datadoghq.ad.check_names='["openmetrics"]'
 #LABEL com.datadoghq.ad.init_configs='[{}]'
