@@ -25,8 +25,8 @@ var (
 )
 
 type Permission struct {
-	Table  string           `json:"table,omitempty"`
-	Key    string           `json:"key,omitempty"`
+	Table  string           `json:"-"`
+	Key    string           `json:"-"`
 	Client *dynamodb.Client `json:"-"`
 
 	logger *zap.Logger
