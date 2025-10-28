@@ -43,6 +43,9 @@
 		table {$DYNAMODB_CERTS_TABLE}
 	}
 	storage_clean_interval 30d
+
+	# Disable Admin
+	admin off
 }
 
 # Reusable snippet for responding to load balancer health checks
