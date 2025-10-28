@@ -52,21 +52,6 @@
 	}
 }
 
-# AWS Health Check Server. Uses local certs instead of on_demand
-172.16.0.0/12:443 {
-	tls {
-		local
-	}
-	route {
-		# respond to health checks
-		import health_check
-
-		respond "OK" 200 {
-			close
-		}
-	}
-}
-
 # Default server on port 80 (http)
 :80 {
 	route {
@@ -83,7 +68,6 @@
 	# Enable on_demand TLS, first using Let'ts Encrypt (acme), then internal fallback
 	tls {
 		on_demand
-		issuer acme
 	}
 
 	route {
