@@ -20,6 +20,9 @@ COPY --from=builder /usr/bin/mirage /usr/bin/mirage
 #LABEL com.datadoghq.ad.instances='[{"openmetrics_endpoint": "http://%%host%%:81/metrics"}]'
 LABEL com.datadoghq.ad.logs='[{"source": "caddy"}]'
 
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD wget -q --tries=1 --spider http://127.0.0.1/.ping || exit 1
+
 # Upgrade alpine packages (useful for security fixes)
 RUN apk upgrade --no-cache
 
