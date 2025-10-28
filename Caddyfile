@@ -3,6 +3,9 @@
 	# Email address used with Let's Encrypt
 	email {$MIRAGE_TLS_EMAIL}
 
+	# Set the default Host when TLS ClientHello doesn't include one
+	default_sni {$MIRAGE_DEFAULT_SNI}
+
 	# Log in JSON by default
 	log {
 		level {$MIRAGE_LOG_LEVEL}
