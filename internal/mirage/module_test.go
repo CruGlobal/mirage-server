@@ -7,7 +7,9 @@ import (
 	"testing"
 
 	"github.com/CruGlobal/mirage-server/internal/app"
+	"github.com/CruGlobal/mirage-server/internal/cache"
 	"github.com/CruGlobal/mirage-server/internal/mirage"
+	"github.com/CruGlobal/mirage-server/internal/redirect"
 	"github.com/CruGlobal/mirage-server/miragetest"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -48,6 +50,7 @@ func TestMirage_Provision(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.NotNil(t, r.Client)
+	assert.IsType(t, &cache.RedirectCache{}, r.Cache)
 	assert.Equal(t, "MirageServerConfigTest", r.Table)
 	assert.Equal(t, "Hostname", r.Key)
 }
@@ -85,25 +88,25 @@ func (ts *MirageTestSuite) TearDownSuite() {
 }
 
 //nolint:gochecknoglobals // redirects are global to the test suite
-var redirects = []mirage.Redirect{
+var redirects = []redirect.Redirect{
 	{
 		Hostname: "www.example.com",
 		Location: "example.com",
 	},
 	{
 		Hostname: "example.org",
-		Type:     mirage.TypeRedirect,
-		Status:   mirage.StatusPermanent,
+		Type:     redirect.TypeRedirect,
+		Status:   redirect.StatusPermanent,
 		Location: "www.example.org",
 	},
 	{
 		Hostname: "www.example.info",
-		Type:     mirage.TypeRedirect,
-		Status:   mirage.StatusTemporary,
+		Type:     redirect.TypeRedirect,
+		Status:   redirect.StatusTemporary,
 		Location: "example.info",
-		Rewrites: []mirage.Rewrite{
+		Rewrites: []redirect.Rewrite{
 			{
-				RegExp:  mirage.RewriteRegexp{Regexp: regexp.MustCompile(`^(.*)$`)},
+				RegExp:  redirect.RewriteRegexp{Regexp: regexp.MustCompile(`^(.*)$`)},
 				Replace: "$1",
 				Final:   true,
 			},
@@ -138,10 +141,11 @@ func TestMirageTestSuite(t *testing.T) {
 
 func (ts *MirageTestSuite) TestMirage_GetRedirect() {
 	tests := []struct {
-		name      string
-		hostname  string
-		expect    mirage.Redirect
-		expectErr bool
+		name       string
+		hostname   string
+		expect     redirect.Redirect
+		expectErr  bool
+		purgeCache bool
 	}{
 		{
 			name:     "temporary redirect",
@@ -163,10 +167,21 @@ func (ts *MirageTestSuite) TestMirage_GetRedirect() {
 			hostname: "www.example.info",
 			expect:   redirects[2],
 		},
+		{
+			name:     "cached redirect",
+			hostname: "www.example.com",
+			expect:   redirects[0],
+		},
+		{
+			name:       "purged cache redirect",
+			hostname:   "www.example.com",
+			expect:     redirects[0],
+			purgeCache: true,
+		},
 	}
 	for _, tc := range tests {
 		ts.Run(tc.name, func() {
-			r, err := ts.mirage.GetRedirect(ts.T().Context(), tc.hostname, true)
+			r, err := ts.mirage.GetRedirect(ts.T().Context(), tc.hostname, tc.purgeCache)
 			if tc.expectErr {
 				ts.Require().Error(err)
 				return

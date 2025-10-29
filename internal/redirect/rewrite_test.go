@@ -1,10 +1,10 @@
-package mirage_test
+package redirect_test
 
 import (
 	"regexp"
 	"testing"
 
-	"github.com/CruGlobal/mirage-server/internal/mirage"
+	"github.com/CruGlobal/mirage-server/internal/redirect"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/stretchr/testify/assert"
@@ -14,13 +14,13 @@ import (
 func TestRewrite_Marshal(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    mirage.Rewrite
+		input    redirect.Rewrite
 		expected *types.AttributeValueMemberM
 	}{
 		{
 			name: "valid",
-			input: mirage.Rewrite{
-				RegExp:  mirage.RewriteRegexp{Regexp: regexp.MustCompile("^(.*)$")},
+			input: redirect.Rewrite{
+				RegExp:  redirect.RewriteRegexp{Regexp: regexp.MustCompile("^(.*)$")},
 				Replace: "$1",
 				Final:   true,
 			},
@@ -32,8 +32,8 @@ func TestRewrite_Marshal(t *testing.T) {
 		},
 		{
 			name: "empty",
-			input: mirage.Rewrite{
-				RegExp:  mirage.RewriteRegexp{Regexp: regexp.MustCompile("")},
+			input: redirect.Rewrite{
+				RegExp:  redirect.RewriteRegexp{Regexp: regexp.MustCompile("")},
 				Replace: "",
 				Final:   false,
 			},
@@ -57,7 +57,7 @@ func TestRewrite_Unmarshal(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    *types.AttributeValueMemberM
-		expected mirage.Rewrite
+		expected redirect.Rewrite
 	}{
 		{
 			name: "valid",
@@ -66,8 +66,8 @@ func TestRewrite_Unmarshal(t *testing.T) {
 				"Replace": &types.AttributeValueMemberS{Value: "$1"},
 				"Final":   &types.AttributeValueMemberBOOL{Value: true},
 			}},
-			expected: mirage.Rewrite{
-				RegExp:  mirage.RewriteRegexp{Regexp: regexp.MustCompile("^(.*)$")},
+			expected: redirect.Rewrite{
+				RegExp:  redirect.RewriteRegexp{Regexp: regexp.MustCompile("^(.*)$")},
 				Replace: "$1",
 				Final:   true,
 			},
@@ -78,8 +78,8 @@ func TestRewrite_Unmarshal(t *testing.T) {
 				"RegExp": &types.AttributeValueMemberS{Value: "[abc"},
 				"Final":  &types.AttributeValueMemberBOOL{Value: false},
 			}},
-			expected: mirage.Rewrite{
-				RegExp:  mirage.RewriteRegexp{Regexp: nil},
+			expected: redirect.Rewrite{
+				RegExp:  redirect.RewriteRegexp{Regexp: nil},
 				Replace: "$1",
 				Final:   false,
 			},
@@ -90,8 +90,8 @@ func TestRewrite_Unmarshal(t *testing.T) {
 				"RegExp":  &types.AttributeValueMemberN{Value: "1"},
 				"Replace": &types.AttributeValueMemberS{Value: "foo"},
 			}},
-			expected: mirage.Rewrite{
-				RegExp:  mirage.RewriteRegexp{Regexp: nil},
+			expected: redirect.Rewrite{
+				RegExp:  redirect.RewriteRegexp{Regexp: nil},
 				Replace: "foo",
 				Final:   true,
 			},
@@ -100,7 +100,7 @@ func TestRewrite_Unmarshal(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var result mirage.Rewrite
+			var result redirect.Rewrite
 			err := attributevalue.Unmarshal(tt.input, &result)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expected, result)

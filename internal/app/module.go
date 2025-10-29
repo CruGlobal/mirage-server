@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/CruGlobal/mirage-server/internal/cache"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/caddyserver/caddy/v2"
@@ -27,8 +28,9 @@ func init() {
 
 // App implements mirage.
 type App struct {
-	Name   string           `json:"-"`
-	Client *dynamodb.Client `json:"-"`
+	Name   string               `json:"-"`
+	Client *dynamodb.Client     `json:"-"`
+	Cache  *cache.RedirectCache `json:"-"`
 	logger *zap.Logger
 
 	Region   string `json:"region,omitempty"`
@@ -78,6 +80,8 @@ func (app *App) Provision(ctx caddy.Context) error {
 	}
 	app.Client = dynamodb.NewFromConfig(cfg)
 
+	app.Cache = cache.NewRedirectCache()
+
 	return nil
 }
 
@@ -86,6 +90,7 @@ func (app App) Start() error {
 		"started app instance",
 		zap.String("app", app.Name),
 	)
+	app.Cache.Start()
 	return nil
 }
 
@@ -94,5 +99,6 @@ func (app App) Stop() error {
 		"stopped app instance",
 		zap.String("app", app.Name),
 	)
+	app.Cache.Stop()
 	return nil
 }

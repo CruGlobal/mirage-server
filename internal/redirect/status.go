@@ -1,4 +1,4 @@
-package mirage
+package redirect
 
 import (
 	"net/http"
