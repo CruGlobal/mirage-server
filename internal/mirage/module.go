@@ -8,6 +8,8 @@ import (
 	"net/http"
 
 	"github.com/CruGlobal/mirage-server/internal/app"
+	"github.com/CruGlobal/mirage-server/internal/cache"
+	"github.com/CruGlobal/mirage-server/internal/redirect"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -31,9 +33,10 @@ func init() {
 }
 
 type Mirage struct {
-	Table  string           `json:"table,omitempty"`
-	Key    string           `json:"key,omitempty"`
-	Client *dynamodb.Client `json:"-"`
+	Table  string               `json:"-"`
+	Key    string               `json:"-"`
+	Client *dynamodb.Client     `json:"-"`
+	Cache  *cache.RedirectCache `json:"-"`
 
 	logger *zap.Logger
 }
@@ -76,7 +79,7 @@ func (r *Mirage) Provision(ctx caddy.Context) error {
 
 	r.Client = m.Client
 	r.Table = m.Table
-	r.Client = m.Client
+	r.Cache = m.Cache
 
 	return nil
 }
@@ -87,41 +90,49 @@ func parseCaddyfile(_ httpcaddyfile.Helper) (caddyhttp.MiddlewareHandler, error)
 }
 
 func (r Mirage) ServeHTTP(writer http.ResponseWriter, request *http.Request, handler caddyhttp.Handler) error {
+	// Add Server header
+	writer.Header().Set("Server", "mirage")
+
 	// Split host and port
 	hostname, _, err := net.SplitHostPort(request.Host)
 	if err != nil {
 		hostname = request.Host // Probably OK, host just didn't have a port
 	}
-	useCache := !request.URL.Query().Has("skip_cache")
 
-	writer.Header().Set("Server", "mirage")
-
-	redirect, err := r.GetRedirect(request.Context(), hostname, useCache)
+	redir, err := r.GetRedirect(request.Context(), hostname, request.URL.Query().Has("purge_cache"))
 	if err != nil {
 		return handler.ServeHTTP(writer, request)
 	}
-	return redirect.ServeHTTP(writer, request)
+	return redir.ServeHTTP(writer, request)
 }
 
-func (r *Mirage) GetRedirect(ctx context.Context, hostname string, _ bool) (*Redirect, error) {
-	// TODO: Implement caching
-	item, err := r.Client.GetItem(ctx, &dynamodb.GetItemInput{
-		TableName: aws.String(r.Table),
-		Key: map[string]types.AttributeValue{
-			r.Key: &types.AttributeValueMemberS{Value: hostname},
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	if item.Item == nil {
-		return nil, errors.New("no redirect found")
+func (r *Mirage) GetRedirect(ctx context.Context, hostname string, purgeCache bool) (*redirect.Redirect, error) {
+	if purgeCache {
+		r.Cache.Delete(hostname)
 	}
 
-	var redirect Redirect
-	err = attributevalue.UnmarshalMap(item.Item, &redirect)
+	var redir redirect.Redirect
+	err := r.Cache.Get(hostname, &redir)
 	if err != nil {
-		return nil, err
+		var item *dynamodb.GetItemOutput
+		item, err = r.Client.GetItem(ctx, &dynamodb.GetItemInput{
+			TableName: aws.String(r.Table),
+			Key: map[string]types.AttributeValue{
+				r.Key: &types.AttributeValueMemberS{Value: hostname},
+			},
+		})
+		if err != nil {
+			return nil, err
+		}
+		if item.Item == nil {
+			return nil, errors.New("no redirect found")
+		}
+
+		err = attributevalue.UnmarshalMap(item.Item, &redir)
+		if err != nil {
+			return nil, err
+		}
+		return &redir, nil
 	}
-	return &redirect, nil
+	return &redir, nil
 }

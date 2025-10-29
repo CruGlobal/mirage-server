@@ -1,9 +1,9 @@
-package mirage_test
+package redirect_test
 
 import (
 	"testing"
 
-	"github.com/CruGlobal/mirage-server/internal/mirage"
+	"github.com/CruGlobal/mirage-server/internal/redirect"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -12,22 +12,22 @@ import (
 func TestType_String(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    mirage.Type
+		input    redirect.Type
 		expected string
 	}{
 		{
 			name:     "REDIRECT",
-			input:    mirage.TypeRedirect,
+			input:    redirect.TypeRedirect,
 			expected: "REDIRECT",
 		},
 		{
 			name:     "PROXY",
-			input:    mirage.TypeProxy,
+			input:    redirect.TypeProxy,
 			expected: "PROXY",
 		},
 		{
 			name:     "unknown type",
-			input:    mirage.Type(42),
+			input:    redirect.Type(42),
 			expected: "REDIRECT",
 		},
 	}
@@ -43,22 +43,22 @@ func TestType_String(t *testing.T) {
 func TestType_MarshalDynamoDBAttributeValue(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    mirage.Type
+		input    redirect.Type
 		expected *types.AttributeValueMemberS
 	}{
 		{
 			name:     "valid REDIRECT type",
-			input:    mirage.TypeRedirect,
+			input:    redirect.TypeRedirect,
 			expected: &types.AttributeValueMemberS{Value: "REDIRECT"},
 		},
 		{
 			name:     "valid PROXY type",
-			input:    mirage.TypeProxy,
+			input:    redirect.TypeProxy,
 			expected: &types.AttributeValueMemberS{Value: "PROXY"},
 		},
 		{
 			name:     "invalid type",
-			input:    mirage.Type(42),
+			input:    redirect.Type(42),
 			expected: &types.AttributeValueMemberS{Value: "REDIRECT"},
 		},
 	}
@@ -76,37 +76,37 @@ func TestType_UnmarshalDynamoDBAttributeValue(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    types.AttributeValue
-		expected mirage.Type
+		expected redirect.Type
 	}{
 		{
 			name:     "REDIRECT",
 			input:    &types.AttributeValueMemberS{Value: "REDIRECT"},
-			expected: mirage.TypeRedirect,
+			expected: redirect.TypeRedirect,
 		},
 		{
 			name:     "PROXY",
 			input:    &types.AttributeValueMemberS{Value: "PROXY"},
-			expected: mirage.TypeProxy,
+			expected: redirect.TypeProxy,
 		},
 		{
 			name:     "unknown type",
 			input:    &types.AttributeValueMemberS{Value: "FOO"},
-			expected: mirage.DefaultType,
+			expected: redirect.DefaultType,
 		},
 		{
 			name:     "incorrect type",
 			input:    &types.AttributeValueMemberN{Value: "0"},
-			expected: mirage.DefaultType,
+			expected: redirect.DefaultType,
 		},
 		{
 			name:     "nil",
 			input:    nil,
-			expected: mirage.DefaultType,
+			expected: redirect.DefaultType,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var p mirage.Type
+			var p redirect.Type
 			err := p.UnmarshalDynamoDBAttributeValue(tt.input)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expected, p)

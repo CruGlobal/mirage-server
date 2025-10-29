@@ -1,4 +1,4 @@
-package mirage_test
+package redirect_test
 
 import (
 	"net/http"
@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/CruGlobal/mirage-server/internal/mirage"
+	"github.com/CruGlobal/mirage-server/internal/redirect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -19,20 +19,20 @@ func TestRedirect_ServeHTTP(t *testing.T) {
 	tests := []struct {
 		name      string
 		url       string
-		redirect  mirage.Redirect
+		redirect  redirect.Redirect
 		response  response
 		expectErr bool
 	}{
 		{
 			name: "missing location",
-			redirect: mirage.Redirect{
+			redirect: redirect.Redirect{
 				Location: "",
 			},
 			expectErr: true,
 		},
 		{
 			name: "defaults",
-			redirect: mirage.Redirect{
+			redirect: redirect.Redirect{
 				Location: "example.com",
 			},
 			response: response{
@@ -42,9 +42,9 @@ func TestRedirect_ServeHTTP(t *testing.T) {
 		},
 		{
 			name: "permanent redirect",
-			redirect: mirage.Redirect{
+			redirect: redirect.Redirect{
 				Location: "example.com",
-				Status:   mirage.StatusPermanent,
+				Status:   redirect.StatusPermanent,
 			},
 			response: response{
 				status:  301,
@@ -54,11 +54,11 @@ func TestRedirect_ServeHTTP(t *testing.T) {
 		{
 			name: "redirect with invalid rewrite",
 			url:  "https://www.example.com/foo/bar",
-			redirect: mirage.Redirect{
+			redirect: redirect.Redirect{
 				Location: "example.com",
-				Rewrites: []mirage.Rewrite{
+				Rewrites: []redirect.Rewrite{
 					{
-						RegExp:  mirage.RewriteRegexp{Regexp: nil},
+						RegExp:  redirect.RewriteRegexp{Regexp: nil},
 						Replace: "$1",
 						Final:   true,
 					},
@@ -72,11 +72,11 @@ func TestRedirect_ServeHTTP(t *testing.T) {
 		{
 			name: "redirect with rewrite",
 			url:  "https://www.example.com/foo/bar",
-			redirect: mirage.Redirect{
+			redirect: redirect.Redirect{
 				Location: "example.com",
-				Rewrites: []mirage.Rewrite{
+				Rewrites: []redirect.Rewrite{
 					{
-						RegExp:  mirage.RewriteRegexp{Regexp: regexp.MustCompile(`^(.*)$`)},
+						RegExp:  redirect.RewriteRegexp{Regexp: regexp.MustCompile(`^(.*)$`)},
 						Replace: "$1",
 						Final:   true,
 					},
@@ -90,16 +90,16 @@ func TestRedirect_ServeHTTP(t *testing.T) {
 		{
 			name: "redirect with multiple rewrites",
 			url:  "https://www.example.com/foo/bar",
-			redirect: mirage.Redirect{
+			redirect: redirect.Redirect{
 				Location: "example.com",
-				Rewrites: []mirage.Rewrite{
+				Rewrites: []redirect.Rewrite{
 					{
-						RegExp:  mirage.RewriteRegexp{Regexp: regexp.MustCompile(`^/(.*)$`)},
+						RegExp:  redirect.RewriteRegexp{Regexp: regexp.MustCompile(`^/(.*)$`)},
 						Replace: "/prefix/$1",
 						Final:   false,
 					},
 					{
-						RegExp:  mirage.RewriteRegexp{Regexp: regexp.MustCompile(`bar`)},
+						RegExp:  redirect.RewriteRegexp{Regexp: regexp.MustCompile(`bar`)},
 						Replace: "baz",
 						Final:   true,
 					},
@@ -113,18 +113,18 @@ func TestRedirect_ServeHTTP(t *testing.T) {
 		{
 			name: "redirect with multiple rewrites, matches second",
 			url:  "https://www.example.com/foo/bar",
-			redirect: mirage.Redirect{
+			redirect: redirect.Redirect{
 				Location: "example.com",
-				Rewrites: []mirage.Rewrite{
+				Rewrites: []redirect.Rewrite{
 					{
 						// Doesn't match the first rewrite
-						RegExp:  mirage.RewriteRegexp{Regexp: regexp.MustCompile(`^/hello/(.*)$`)},
+						RegExp:  redirect.RewriteRegexp{Regexp: regexp.MustCompile(`^/hello/(.*)$`)},
 						Replace: "$1",
 						Final:   true,
 					},
 					{
 						// The second rewrite should match
-						RegExp:  mirage.RewriteRegexp{Regexp: regexp.MustCompile(`bar`)},
+						RegExp:  redirect.RewriteRegexp{Regexp: regexp.MustCompile(`bar`)},
 						Replace: "baz",
 						Final:   true,
 					},
@@ -138,16 +138,16 @@ func TestRedirect_ServeHTTP(t *testing.T) {
 		{
 			name: "redirect with multiple rewrites, first final",
 			url:  "https://www.example.com/foo/bar",
-			redirect: mirage.Redirect{
+			redirect: redirect.Redirect{
 				Location: "example.com",
-				Rewrites: []mirage.Rewrite{
+				Rewrites: []redirect.Rewrite{
 					{
-						RegExp:  mirage.RewriteRegexp{Regexp: regexp.MustCompile(`^/foo(.*)$`)},
+						RegExp:  redirect.RewriteRegexp{Regexp: regexp.MustCompile(`^/foo(.*)$`)},
 						Replace: "$1",
 						Final:   true,
 					},
 					{
-						RegExp:  mirage.RewriteRegexp{Regexp: regexp.MustCompile(`bar`)},
+						RegExp:  redirect.RewriteRegexp{Regexp: regexp.MustCompile(`bar`)},
 						Replace: "baz",
 						Final:   true,
 					},
