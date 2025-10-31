@@ -1,9 +1,10 @@
 package redirect
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
+
+	"github.com/caddyserver/caddy/v2"
 )
 
 type Redirect struct {
@@ -14,21 +15,30 @@ type Redirect struct {
 	Rewrites []Rewrite `dynamodbav:"Rewrites"`
 }
 
-func (r *Redirect) ServeHTTP(writer http.ResponseWriter, request *http.Request) error {
-	if r.Location == "" {
-		return errors.New("missing redirect location")
+func (r *Redirect) Process(request *http.Request, repl *caddy.Replacer) error {
+	repl.Set("http.mirage.type", r.Type.String())
+	path := r.RewritePath(request.URL.Path)
+
+	switch r.Type {
+	case TypeRedirect:
+		repl.Set("http.mirage.redirect.location", fmt.Sprintf("https://%s%s", r.Location, path))
+		repl.Set("http.mirage.redirect.status", r.Status.StatusCode())
+	case TypeProxy:
+		return nil
 	}
 
-	var location string
-	path := request.URL.Path
-	hasPathMatch := false
+	return nil
+}
+
+func (r *Redirect) RewritePath(path string) string {
+	hasMatch := false
 	if r.Rewrites != nil {
 		for _, rewrite := range r.Rewrites {
 			if rewrite.RegExp.Regexp == nil {
 				continue
 			}
 			if rewrite.RegExp.MatchString(path) {
-				hasPathMatch = true
+				hasMatch = true
 				path = rewrite.RegExp.ReplaceAllString(path, rewrite.Replace)
 				if rewrite.Final {
 					break
@@ -36,16 +46,8 @@ func (r *Redirect) ServeHTTP(writer http.ResponseWriter, request *http.Request) 
 			}
 		}
 	}
-	if hasPathMatch {
-		location = fmt.Sprintf("https://%s%s", r.Location, path)
-	} else {
-		location = fmt.Sprintf("https://%s", r.Location)
+	if !hasMatch {
+		return ""
 	}
-
-	if r.Type == TypeRedirect {
-		writer.Header().Add("location", location)
-		writer.WriteHeader(r.Status.StatusCode())
-		return nil
-	}
-	return nil
+	return path
 }

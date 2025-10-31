@@ -33,10 +33,10 @@ func init() {
 }
 
 type Mirage struct {
-	Table  string               `json:"-"`
-	Key    string               `json:"-"`
-	Client *dynamodb.Client     `json:"-"`
-	Cache  *cache.RedirectCache `json:"-"`
+	Table  string           `json:"-"`
+	Key    string           `json:"-"`
+	Client *dynamodb.Client `json:"-"`
+	Cache  cache.Cache      `json:"-"`
 
 	logger *zap.Logger
 }
@@ -89,7 +89,9 @@ func parseCaddyfile(_ httpcaddyfile.Helper) (caddyhttp.MiddlewareHandler, error)
 	return NewMirage(), nil
 }
 
-func (r Mirage) ServeHTTP(writer http.ResponseWriter, request *http.Request, handler caddyhttp.Handler) error {
+func (r Mirage) ServeHTTP(writer http.ResponseWriter, request *http.Request, next caddyhttp.Handler) error {
+	repl := request.Context().Value(caddy.ReplacerCtxKey).(*caddy.Replacer) //nolint:errcheck // value is always set
+
 	// Add Server header
 	writer.Header().Set("Server", "mirage")
 
@@ -99,14 +101,17 @@ func (r Mirage) ServeHTTP(writer http.ResponseWriter, request *http.Request, han
 		hostname = request.Host // Probably OK, host just didn't have a port
 	}
 
-	redir, err := r.GetRedirect(request.Context(), hostname, request.URL.Query().Has("purge_cache"))
-	if err != nil {
-		return handler.ServeHTTP(writer, request)
+	// Get redirect either from cache or DynamoDB
+	redir := r.GetRedirect(request.Context(), hostname, request.URL.Query().Has("purge_cache"))
+	if redir != nil {
+		// If we have a redirect, process it
+		_ = redir.Process(request, repl)
 	}
-	return redir.ServeHTTP(writer, request)
+	// Pass control to the next handler
+	return next.ServeHTTP(writer, request)
 }
 
-func (r *Mirage) GetRedirect(ctx context.Context, hostname string, purgeCache bool) (*redirect.Redirect, error) {
+func (r *Mirage) GetRedirect(ctx context.Context, hostname string, purgeCache bool) *redirect.Redirect {
 	if purgeCache {
 		r.Cache.Delete(hostname)
 	}
@@ -122,17 +127,17 @@ func (r *Mirage) GetRedirect(ctx context.Context, hostname string, purgeCache bo
 			},
 		})
 		if err != nil {
-			return nil, err
+			return nil
 		}
 		if item.Item == nil {
-			return nil, errors.New("no redirect found")
+			return nil
 		}
 
 		err = attributevalue.UnmarshalMap(item.Item, &redir)
 		if err != nil {
-			return nil, err
+			return nil
 		}
-		return &redir, nil
+		return &redir
 	}
-	return &redir, nil
+	return &redir
 }

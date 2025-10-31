@@ -65,7 +65,7 @@
 		import health_check
 
 		# Redirect all requests to HTTPS
-		redir https:// {host} {uri} permanent
+		redir https://{host}{uri} permanent
 	}
 }
 
@@ -76,11 +76,33 @@
 		on_demand
 	}
 
-	route {
-		# respond to health checks
-		import health_check
+	# respond to health checks
+	import health_check
 
-		# Use Mirage Server to redirect or proxy requests
-		mirage
+	# Use Mirage Server setup redirect/proxy vars
+	mirage
+
+	@mirageRedirect {
+		vars {http.mirage.type} REDIRECT
+	}
+
+	@mirageProxy {
+		vars {http.mirage.type} PROXY
+	}
+
+	mirage
+
+	handle @mirageRedirect {
+		redir {http.mirage.redirect.location} {http.mirage.redirect.status}
+	}
+
+	handle @mirageProxy {
+		reverse_proxy {http.mirage.proxy.upstream}
+	}
+
+	handle {
+		respond "Gone" 410 {
+			close
+		}
 	}
 }
