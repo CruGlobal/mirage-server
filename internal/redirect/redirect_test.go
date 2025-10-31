@@ -2,78 +2,129 @@ package redirect_test
 
 import (
 	"net/http"
-	"net/http/httptest"
 	"regexp"
 	"testing"
 
 	"github.com/CruGlobal/mirage-server/internal/redirect"
+	"github.com/caddyserver/caddy/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestRedirect_ServeHTTP(t *testing.T) {
-	type response struct {
-		status  int
-		headers http.Header
-	}
+func TestRedirect_Prefix(t *testing.T) {
 	tests := []struct {
 		name      string
-		url       string
 		redirect  redirect.Redirect
-		response  response
+		url       string
+		expect    map[string]any
 		expectErr bool
 	}{
 		{
-			name: "missing location",
-			redirect: redirect.Redirect{
-				Location: "",
+			name:      "defaults",
+			url:       "https://www.example.com",
+			expectErr: false,
+			expect: map[string]any{
+				"http.mirage.type":              redirect.TypeRedirect.String(),
+				"http.mirage.redirect.location": "https://example.com",
+				"http.mirage.redirect.status":   redirect.StatusTemporary.StatusCode(),
 			},
-			expectErr: true,
-		},
-		{
-			name: "defaults",
 			redirect: redirect.Redirect{
 				Location: "example.com",
-			},
-			response: response{
-				status:  302,
-				headers: map[string][]string{"Location": {"https://example.com"}},
 			},
 		},
 		{
-			name: "permanent redirect",
+			name:      "temporary redirect",
+			url:       "https://www.example.com",
+			expectErr: false,
+			expect: map[string]any{
+				"http.mirage.type":              redirect.TypeRedirect.String(),
+				"http.mirage.redirect.location": "https://example.com",
+				"http.mirage.redirect.status":   redirect.StatusTemporary.StatusCode(),
+			},
 			redirect: redirect.Redirect{
 				Location: "example.com",
+				Type:     redirect.TypeRedirect,
+				Status:   redirect.StatusTemporary,
+			},
+		},
+		{
+			name:      "permanent redirect",
+			url:       "https://www.example.com",
+			expectErr: false,
+			expect: map[string]any{
+				"http.mirage.type":              redirect.TypeRedirect.String(),
+				"http.mirage.redirect.location": "https://example.com",
+				"http.mirage.redirect.status":   redirect.StatusPermanent.StatusCode(),
+			},
+			redirect: redirect.Redirect{
+				Location: "example.com",
+				Type:     redirect.TypeRedirect,
 				Status:   redirect.StatusPermanent,
 			},
-			response: response{
-				status:  301,
-				headers: map[string][]string{"Location": {"https://example.com"}},
-			},
 		},
 		{
-			name: "redirect with invalid rewrite",
-			url:  "https://www.example.com/foo/bar",
+			name:      "permanent redirect with rewrite",
+			url:       "https://www.example.com/foo/bar/baz",
+			expectErr: false,
+			expect: map[string]any{
+				"http.mirage.type":              redirect.TypeRedirect.String(),
+				"http.mirage.redirect.location": "https://example.com/foo/bar/baz",
+				"http.mirage.redirect.status":   redirect.StatusPermanent.StatusCode(),
+			},
 			redirect: redirect.Redirect{
 				Location: "example.com",
+				Type:     redirect.TypeRedirect,
+				Status:   redirect.StatusPermanent,
 				Rewrites: []redirect.Rewrite{
 					{
-						RegExp:  redirect.RewriteRegexp{Regexp: nil},
+						RegExp:  redirect.RewriteRegexp{Regexp: regexp.MustCompile(`^(.*)$`)},
 						Replace: "$1",
-						Final:   true,
+						Final:   false,
 					},
 				},
 			},
-			response: response{
-				status:  302,
-				headers: map[string][]string{"Location": {"https://example.com"}},
-			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, err := http.NewRequest(http.MethodGet, tt.url, nil)
+			require.NoError(t, err)
+
+			repl := caddy.NewReplacer()
+
+			err = tt.redirect.Process(r, repl)
+			if tt.expectErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			for k, v := range tt.expect {
+				actual, exists := repl.Get(k)
+				assert.True(t, exists)
+				assert.Equal(t, v, actual)
+			}
+		})
+	}
+}
+
+func TestRedirect_RewritePath(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     string
+		redirect redirect.Redirect
+		expected string
+	}{
+		{
+			name:     "empty path, no rewrite",
+			path:     "",
+			expected: "",
+			redirect: redirect.Redirect{},
 		},
 		{
-			name: "redirect with rewrite",
-			url:  "https://www.example.com/foo/bar",
+			name:     "empty path, with rewrite",
+			path:     "",
+			expected: "",
 			redirect: redirect.Redirect{
-				Location: "example.com",
 				Rewrites: []redirect.Rewrite{
 					{
 						RegExp:  redirect.RewriteRegexp{Regexp: regexp.MustCompile(`^(.*)$`)},
@@ -82,64 +133,59 @@ func TestRedirect_ServeHTTP(t *testing.T) {
 					},
 				},
 			},
-			response: response{
-				status:  302,
-				headers: map[string][]string{"Location": {"https://example.com/foo/bar"}},
+		},
+		{
+			name:     "invalid rewrite",
+			path:     "/foo/bar/baz",
+			expected: "",
+			redirect: redirect.Redirect{
+				Rewrites: []redirect.Rewrite{
+					{
+						RegExp:  redirect.RewriteRegexp{Regexp: nil},
+						Replace: "$1",
+						Final:   true,
+					},
+				},
 			},
 		},
 		{
-			name: "redirect with multiple rewrites",
-			url:  "https://www.example.com/foo/bar",
+			name:     "forward path",
+			path:     "/foo/bar/baz",
+			expected: "/foo/bar/baz",
 			redirect: redirect.Redirect{
-				Location: "example.com",
 				Rewrites: []redirect.Rewrite{
 					{
-						RegExp:  redirect.RewriteRegexp{Regexp: regexp.MustCompile(`^/(.*)$`)},
-						Replace: "/prefix/$1",
+						RegExp:  redirect.RewriteRegexp{Regexp: regexp.MustCompile(`^(.*)$`)},
+						Replace: "$1",
+						Final:   true,
+					},
+				},
+			},
+		},
+		{
+			name:     "forward path, multiple rewrites",
+			path:     "/foo/bar/baz",
+			expected: "/foo/qux/baz",
+			redirect: redirect.Redirect{
+				Rewrites: []redirect.Rewrite{
+					{
+						RegExp:  redirect.RewriteRegexp{Regexp: regexp.MustCompile(`^(.*)$`)},
+						Replace: "$1",
 						Final:   false,
 					},
 					{
 						RegExp:  redirect.RewriteRegexp{Regexp: regexp.MustCompile(`bar`)},
-						Replace: "baz",
+						Replace: "qux",
 						Final:   true,
 					},
 				},
 			},
-			response: response{
-				status:  302,
-				headers: map[string][]string{"Location": {"https://example.com/prefix/foo/baz"}},
-			},
 		},
 		{
-			name: "redirect with multiple rewrites, matches second",
-			url:  "https://www.example.com/foo/bar",
+			name:     "forward path, multiple rewrites, final rewrite",
+			path:     "/foo/bar/baz",
+			expected: "/bar/baz",
 			redirect: redirect.Redirect{
-				Location: "example.com",
-				Rewrites: []redirect.Rewrite{
-					{
-						// Doesn't match the first rewrite
-						RegExp:  redirect.RewriteRegexp{Regexp: regexp.MustCompile(`^/hello/(.*)$`)},
-						Replace: "$1",
-						Final:   true,
-					},
-					{
-						// The second rewrite should match
-						RegExp:  redirect.RewriteRegexp{Regexp: regexp.MustCompile(`bar`)},
-						Replace: "baz",
-						Final:   true,
-					},
-				},
-			},
-			response: response{
-				status:  302,
-				headers: map[string][]string{"Location": {"https://example.com/foo/baz"}},
-			},
-		},
-		{
-			name: "redirect with multiple rewrites, first final",
-			url:  "https://www.example.com/foo/bar",
-			redirect: redirect.Redirect{
-				Location: "example.com",
 				Rewrites: []redirect.Rewrite{
 					{
 						RegExp:  redirect.RewriteRegexp{Regexp: regexp.MustCompile(`^/foo(.*)$`)},
@@ -148,30 +194,17 @@ func TestRedirect_ServeHTTP(t *testing.T) {
 					},
 					{
 						RegExp:  redirect.RewriteRegexp{Regexp: regexp.MustCompile(`bar`)},
-						Replace: "baz",
+						Replace: "qux",
 						Final:   true,
 					},
 				},
-			},
-			response: response{
-				status:  302,
-				headers: map[string][]string{"Location": {"https://example.com/bar"}},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			w := httptest.NewRecorder()
-			r, err := http.NewRequest(http.MethodGet, tt.url, nil)
-			require.NoError(t, err)
-			err = tt.redirect.ServeHTTP(w, r)
-			if tt.expectErr {
-				require.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
-			assert.Equal(t, tt.response.status, w.Code)
-			assert.Equal(t, tt.response.headers, w.Result().Header)
+			path := tt.redirect.RewritePath(tt.path)
+			assert.Equal(t, tt.expected, path)
 		})
 	}
 }

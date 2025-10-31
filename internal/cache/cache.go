@@ -11,6 +11,14 @@ const (
 	DefaultCapacity = 10000
 )
 
+type Cache interface {
+	Start()
+	Stop()
+	Set(redirect redirect.Redirect)
+	Get(hostname string, redirect *redirect.Redirect) error
+	Delete(hostname string)
+}
+
 type RedirectCache struct {
 	cache *ttlcache.Cache[string, redirect.Redirect]
 }

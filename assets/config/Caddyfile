@@ -11,12 +11,12 @@
 	mirage {
 		region us-east-1
 		endpoint http://localhost:8000
-		table RedirectorConfigDev
+		table MirageServerConfigDev
 		key Hostname
 	}
 
 	storage dynamodb {
-		table RedirectorCertsDev
+		table MirageServerCertificatesDev
 	}
 
 	on_demand_tls {
@@ -27,7 +27,29 @@
 :8443 {
 	tls {
 		on_demand
-		issuer internal
 	}
+
+	@mirageRedirect {
+		vars {http.mirage.type} REDIRECT
+	}
+
+	@mirageProxy {
+		vars {http.mirage.type} PROXY
+	}
+
 	mirage
+
+	handle @mirageRedirect {
+		redir {http.mirage.redirect.location} {http.mirage.redirect.status}
+	}
+
+	handle @mirageProxy {
+		reverse_proxy {http.mirage.proxy.upstream}
+	}
+
+	handle {
+		respond "Gone" 410 {
+			close
+		}
+	}
 }

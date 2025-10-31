@@ -1,6 +1,7 @@
 package mirage_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -146,6 +147,7 @@ func (ts *MirageTestSuite) TestMirage_GetRedirect() {
 		expect     redirect.Redirect
 		expectErr  bool
 		purgeCache bool
+		cached     bool
 	}{
 		{
 			name:     "temporary redirect",
@@ -171,6 +173,7 @@ func (ts *MirageTestSuite) TestMirage_GetRedirect() {
 			name:     "cached redirect",
 			hostname: "www.example.com",
 			expect:   redirects[0],
+			cached:   true,
 		},
 		{
 			name:       "purged cache redirect",
@@ -181,13 +184,12 @@ func (ts *MirageTestSuite) TestMirage_GetRedirect() {
 	}
 	for _, tc := range tests {
 		ts.Run(tc.name, func() {
-			r, err := ts.mirage.GetRedirect(ts.T().Context(), tc.hostname, tc.purgeCache)
+			r := ts.mirage.GetRedirect(ts.T().Context(), tc.hostname, tc.purgeCache)
 			if tc.expectErr {
-				ts.Require().Error(err)
-				return
+				ts.Require().Nil(r)
+			} else {
+				ts.Equal(tc.expect, *r)
 			}
-			ts.Require().NoError(err)
-			ts.Equal(tc.expect, *r)
 		})
 	}
 }
@@ -202,70 +204,70 @@ func (m *MockCaddyHandler) ServeHTTP(writer http.ResponseWriter, request *http.R
 }
 
 func (ts *MirageTestSuite) TestMirage_ServeHTTP() {
-	type response struct {
-		status  int
-		headers http.Header
-	}
 	tests := []struct {
-		name      string
-		method    string
-		url       string
-		response  response
-		expectErr bool
+		name            string
+		url             string
+		expect          map[string]any
+		unknownRedirect bool
 	}{
 		{
-			name:   "temporary redirect",
-			method: "GET",
-			url:    "https://www.example.com",
-			response: response{
-				status:  302,
-				headers: map[string][]string{"Location": {"https://example.com"}, "Server": {"mirage"}},
+			name: "temporary redirect",
+			url:  "https://www.example.com",
+			expect: map[string]any{
+				"http.mirage.type":              redirect.TypeRedirect.String(),
+				"http.mirage.redirect.location": "https://example.com",
+				"http.mirage.redirect.status":   redirect.StatusTemporary.StatusCode(),
 			},
 		},
 		{
-			name:   "permanent redirect",
-			method: "GET",
-			url:    "https://example.org",
-			response: response{
-				status:  301,
-				headers: map[string][]string{"Location": {"https://www.example.org"}, "Server": {"mirage"}},
+			name: "permanent redirect",
+			url:  "https://example.org",
+			expect: map[string]any{
+				"http.mirage.type":              redirect.TypeRedirect.String(),
+				"http.mirage.redirect.location": "https://www.example.org",
+				"http.mirage.redirect.status":   redirect.StatusPermanent.StatusCode(),
 			},
 		},
 		{
-			name:      "unknown hostname",
-			method:    "GET",
-			url:       "https://example.edu",
-			expectErr: true,
+			name:            "unknown hostname",
+			url:             "https://example.edu",
+			unknownRedirect: true,
 		},
 		{
-			name:   "redirect with rewrites",
-			method: "GET",
-			url:    "https://www.example.info/foo/bar/baz",
-			response: response{
-				status: 302,
-				headers: map[string][]string{
-					"Location": {"https://example.info/foo/bar/baz"},
-					"Server":   {"mirage"},
-				},
+			name: "redirect with rewrites",
+			url:  "https://www.example.info/foo/bar/baz",
+			expect: map[string]any{
+				"http.mirage.type":              redirect.TypeRedirect.String(),
+				"http.mirage.redirect.location": "https://example.info/foo/bar/baz",
+				"http.mirage.redirect.status":   redirect.StatusTemporary.StatusCode(),
 			},
 		},
 	}
-	for _, tc := range tests {
-		ts.Run(tc.name, func() {
+	for _, tt := range tests {
+		ts.Run(tt.name, func() {
 			w := httptest.NewRecorder()
-			r, err := http.NewRequest(tc.method, tc.url, nil)
+			repl := caddy.NewReplacer()
+			ctx := context.WithValue(context.Background(), caddy.ReplacerCtxKey, repl)
+			r, err := http.NewRequestWithContext(ctx, http.MethodGet, tt.url, nil)
+
 			ts.Require().NoError(err)
 			mockHandler := new(MockCaddyHandler)
 			mockHandler.On("ServeHTTP", mock.Anything, mock.Anything).Return(nil)
 
 			err = ts.mirage.ServeHTTP(w, r, mockHandler)
 			ts.Require().NoError(err)
-			if tc.expectErr {
-				mockHandler.AssertNumberOfCalls(ts.T(), "ServeHTTP", 1)
+			ts.Require().Equal("mirage", w.Header().Get("Server"))
+			mockHandler.AssertNumberOfCalls(ts.T(), "ServeHTTP", 1)
+
+			if tt.unknownRedirect {
+				_, exists := repl.Get("http.mirage.type")
+				ts.False(exists)
 			} else {
-				mockHandler.AssertNotCalled(ts.T(), "ServeHTTP")
-				ts.Equal(tc.response.status, w.Code)
-				ts.Equal(tc.response.headers, w.Result().Header)
+				for k, v := range tt.expect {
+					actual, exists := repl.Get(k)
+					ts.True(exists)
+					ts.Equal(v, actual)
+				}
 			}
 		})
 	}

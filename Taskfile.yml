@@ -36,6 +36,22 @@ tasks:
     cmds:
       - go run ./cmd/mirage fmt --overwrite --config Caddyfile
 
+  "mirage:validate":
+    desc: Validate Caddyfile using mirage
+    env:
+      AWS_ACCESS_KEY_ID: DEVELOPMENTACCESSKEYID
+      AWS_SECRET_ACCESS_KEY: DEVELOPMENTSECRETACCESSKEY
+      MIRAGE_TLS_EMAIL: hello@example.com
+      MIRAGE_DEFAULT_SNI: example.com
+      MIRAGE_LOG_LEVEL: ERROR
+      DYNAMODB_CONFIG_TABLE: MirageServerConfigValidate
+      DYNAMODB_CONFIG_KEY: Hostname
+      MIRAGE_ACME_CA: https://acme-staging-v02.api.letsencrypt.org/directory
+      DYNAMODB_CERTS_TABLE: MirageServerCertificatesValidate
+    cmds:
+      - go run ./cmd/mirage validate --config Caddyfile
+
+
   test:
     desc: Run tests
     env:
