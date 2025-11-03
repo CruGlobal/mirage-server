@@ -3,6 +3,7 @@ package redirect
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/caddyserver/caddy/v2"
 )
@@ -24,6 +25,12 @@ func (r *Redirect) Process(request *http.Request, repl *caddy.Replacer) error {
 		repl.Set("http.mirage.redirect.location", fmt.Sprintf("https://%s%s", r.Location, path))
 		repl.Set("http.mirage.redirect.status", r.Status.StatusCode())
 	case TypeProxy:
+		location, err := url.Parse(r.Location)
+		if err != nil {
+			return err
+		}
+		repl.Set("http.mirage.proxy.upstream", fmt.Sprintf("https://%s", location.Hostname()))
+		repl.Set("http.mirage.proxy.path", location.Path)
 		return nil
 	}
 

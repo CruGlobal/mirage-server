@@ -28,6 +28,7 @@
 	}
 
 	acme_ca {$MIRAGE_ACME_CA}
+	skip_install_trust
 	on_demand_tls {
 		# Check DynamoDB for on demand certificate permission
 		permission dynamodb
@@ -97,7 +98,11 @@
 	}
 
 	handle @mirageProxy {
-		reverse_proxy {http.mirage.proxy.upstream}
+		reverse_proxy {http.mirage.proxy.upstream} {
+			header_up Host {upstream_hostport}
+			rewrite {http.mirage.proxy.path}{uri}
+		}
+		replace {http.mirage.proxy.path} ""
 	}
 
 	handle {
