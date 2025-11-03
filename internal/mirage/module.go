@@ -113,6 +113,7 @@ func (r Mirage) ServeHTTP(writer http.ResponseWriter, request *http.Request, nex
 
 func (r *Mirage) GetRedirect(ctx context.Context, hostname string, purgeCache bool) *redirect.Redirect {
 	if purgeCache {
+		r.logger.Debug("purging cache", zap.String("hostname", hostname))
 		r.Cache.Delete(hostname)
 	}
 
@@ -137,7 +138,10 @@ func (r *Mirage) GetRedirect(ctx context.Context, hostname string, purgeCache bo
 		if err != nil {
 			return nil
 		}
+		r.Cache.Set(redir)
+		r.logger.Debug("cache set", zap.String("hostname", hostname))
 		return &redir
 	}
+	r.logger.Debug("cache hit", zap.String("hostname", hostname))
 	return &redir
 }
