@@ -98,7 +98,8 @@
 	}
 
 	handle @mirageProxy {
-		reverse_proxy {http.mirage.proxy.upstream} {
+		reverse_proxy {
+			to https://{http.mirage.proxy.host}
 			header_up Host {upstream_hostport}
 			rewrite {http.mirage.proxy.path}{uri}
 		}
