@@ -84,6 +84,19 @@ func TestRedirect_Prefix(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "basic proxy",
+			url:  "https://www.example.com",
+			expect: map[string]any{
+				"http.mirage.type":           redirect.TypeProxy.String(),
+				"http.mirage.proxy.upstream": "example.info:443",
+				"http.mirage.proxy.path":     "",
+			},
+			redirect: redirect.Redirect{
+				Location: "example.info",
+				Type:     redirect.TypeProxy,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -111,6 +124,7 @@ func TestRedirect_RewritePath(t *testing.T) {
 	tests := []struct {
 		name     string
 		path     string
+		location string
 		redirect redirect.Redirect
 		expected string
 	}{
@@ -121,8 +135,30 @@ func TestRedirect_RewritePath(t *testing.T) {
 			redirect: redirect.Redirect{},
 		},
 		{
+			name:     "empty path, no rewrite, has location",
+			path:     "",
+			location: "/lorem/ipsum",
+			expected: "/lorem/ipsum",
+			redirect: redirect.Redirect{},
+		},
+		{
 			name:     "empty path, with rewrite",
 			path:     "",
+			expected: "",
+			redirect: redirect.Redirect{
+				Rewrites: []redirect.Rewrite{
+					{
+						RegExp:  redirect.RewriteRegexp{Regexp: regexp.MustCompile(`^(.*)$`)},
+						Replace: "$1",
+						Final:   true,
+					},
+				},
+			},
+		},
+		{
+			name:     "empty path, with rewrite, with location",
+			path:     "",
+			location: "/lorem/ipsum",
 			expected: "",
 			redirect: redirect.Redirect{
 				Rewrites: []redirect.Rewrite{
@@ -151,6 +187,7 @@ func TestRedirect_RewritePath(t *testing.T) {
 		{
 			name:     "forward path",
 			path:     "/foo/bar/baz",
+			location: "/lorem/ipsum",
 			expected: "/foo/bar/baz",
 			redirect: redirect.Redirect{
 				Rewrites: []redirect.Rewrite{
@@ -165,6 +202,7 @@ func TestRedirect_RewritePath(t *testing.T) {
 		{
 			name:     "forward path, multiple rewrites",
 			path:     "/foo/bar/baz",
+			location: "/lorem/ipsum",
 			expected: "/foo/qux/baz",
 			redirect: redirect.Redirect{
 				Rewrites: []redirect.Rewrite{
@@ -184,6 +222,7 @@ func TestRedirect_RewritePath(t *testing.T) {
 		{
 			name:     "forward path, multiple rewrites, final rewrite",
 			path:     "/foo/bar/baz",
+			location: "/lorem/ipsum",
 			expected: "/bar/baz",
 			redirect: redirect.Redirect{
 				Rewrites: []redirect.Rewrite{
@@ -203,7 +242,7 @@ func TestRedirect_RewritePath(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			path := tt.redirect.RewritePath(tt.path)
+			path := tt.redirect.RewritePath(tt.path, tt.location)
 			assert.Equal(t, tt.expected, path)
 		})
 	}
