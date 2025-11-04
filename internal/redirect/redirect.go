@@ -17,19 +17,20 @@ type Redirect struct {
 }
 
 func (r *Redirect) Process(request *http.Request, repl *caddy.Replacer) error {
+	location, err := url.Parse(fmt.Sprintf("https://%s", r.Location))
+	if err != nil {
+		return err
+	}
 	repl.Set("http.mirage.type", r.Type.String())
-	path := r.RewritePath(request.URL.Path)
+
+	location.Path = r.RewritePath(request.URL.Path, location.Path)
 
 	switch r.Type {
 	case TypeRedirect:
-		repl.Set("http.mirage.redirect.location", fmt.Sprintf("https://%s%s", r.Location, path))
+		repl.Set("http.mirage.redirect.location", location.String())
 		repl.Set("http.mirage.redirect.status", r.Status.StatusCode())
 	case TypeProxy:
-		location, err := url.Parse(r.Location)
-		if err != nil {
-			return err
-		}
-		repl.Set("http.mirage.proxy.upstream", fmt.Sprintf("https://%s", location.Hostname()))
+		repl.Set("http.mirage.proxy.upstream", fmt.Sprintf("%s:443", location.Host))
 		repl.Set("http.mirage.proxy.path", location.Path)
 		return nil
 	}
@@ -37,16 +38,17 @@ func (r *Redirect) Process(request *http.Request, repl *caddy.Replacer) error {
 	return nil
 }
 
-func (r *Redirect) RewritePath(path string) string {
+func (r *Redirect) RewritePath(requestPath string, locationPath string) string {
 	hasMatch := false
+	rewritePath := requestPath
 	if r.Rewrites != nil {
 		for _, rewrite := range r.Rewrites {
 			if rewrite.RegExp.Regexp == nil {
 				continue
 			}
-			if rewrite.RegExp.MatchString(path) {
+			if rewrite.RegExp.MatchString(rewritePath) {
 				hasMatch = true
-				path = rewrite.RegExp.ReplaceAllString(path, rewrite.Replace)
+				rewritePath = rewrite.RegExp.ReplaceAllString(rewritePath, rewrite.Replace)
 				if rewrite.Final {
 					break
 				}
@@ -54,7 +56,7 @@ func (r *Redirect) RewritePath(path string) string {
 		}
 	}
 	if !hasMatch {
-		return ""
+		return locationPath
 	}
-	return path
+	return rewritePath
 }
