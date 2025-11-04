@@ -105,7 +105,10 @@
 			header_up Host {upstream_hostport}
 			rewrite {http.mirage.proxy.path}{uri}
 		}
-		replace {http.mirage.proxy.path} ""
+		replace {
+			{http.mirage.proxy.path} ""
+			{http.mirage.proxy.host} {host}
+		}
 	}
 
 	handle {
