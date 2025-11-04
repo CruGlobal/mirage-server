@@ -30,7 +30,7 @@ func (r *Redirect) Process(request *http.Request, repl *caddy.Replacer) error {
 		repl.Set("http.mirage.redirect.location", location.String())
 		repl.Set("http.mirage.redirect.status", r.Status.StatusCode())
 	case TypeProxy:
-		repl.Set("http.mirage.proxy.host", location.Host)
+		repl.Set("http.mirage.proxy.upstream", fmt.Sprintf("%s:443", location.Hostname()))
 		repl.Set("http.mirage.proxy.path", location.Path)
 		return nil
 	}
