@@ -89,11 +89,24 @@ func TestRedirect_Prefix(t *testing.T) {
 			url:  "https://www.example.com",
 			expect: map[string]any{
 				"http.mirage.type":           redirect.TypeProxy.String(),
-				"http.mirage.proxy.upstream": "example.info:443",
+				"http.mirage.proxy.upstream": "https://example.info",
 				"http.mirage.proxy.path":     "",
 			},
 			redirect: redirect.Redirect{
 				Location: "example.info",
+				Type:     redirect.TypeProxy,
+			},
+		},
+		{
+			name: "basic proxy with path",
+			url:  "https://www.example.com",
+			expect: map[string]any{
+				"http.mirage.type":           redirect.TypeProxy.String(),
+				"http.mirage.proxy.upstream": "https://example.info",
+				"http.mirage.proxy.path":     "/foo/bar",
+			},
+			redirect: redirect.Redirect{
+				Location: "example.info/foo/bar",
 				Type:     redirect.TypeProxy,
 			},
 		},
