@@ -29,6 +29,8 @@
 		on_demand
 	}
 
+    mirage
+
 	@mirageRedirect {
 		vars {http.mirage.type} REDIRECT
 	}
@@ -37,14 +39,8 @@
 		vars {http.mirage.type} PROXY
 	}
 
-	mirage
-
 	handle @mirageRedirect {
 		redir {http.mirage.redirect.location} {http.mirage.redirect.status}
-	}
-
-	handle @mirageProxy {
-		reverse_proxy {http.mirage.proxy.upstream}
 	}
 
 	handle {
