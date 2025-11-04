@@ -87,28 +87,8 @@
 		vars {http.mirage.type} REDIRECT
 	}
 
-	@mirageProxy {
-		vars {http.mirage.type} PROXY
-	}
-
-	mirage
-
 	handle @mirageRedirect {
 		redir {http.mirage.redirect.location} {http.mirage.redirect.status}
-	}
-
-	handle @mirageProxy {
-		reverse_proxy {http.mirage.proxy.upstream} {
-			transport http {
-				tls
-			}
-			header_up Host {upstream_hostport}
-			rewrite {http.mirage.proxy.path}{uri}
-		}
-		replace {
-			{http.mirage.proxy.path} ""
-			{http.mirage.proxy.host} {host}
-		}
 	}
 
 	handle {
