@@ -105,7 +105,10 @@ func (r Mirage) ServeHTTP(writer http.ResponseWriter, request *http.Request, nex
 	redir := r.GetRedirect(request.Context(), hostname, request.URL.Query().Has("purge_cache"))
 	if redir != nil {
 		// If we have a redirect, process it
-		_ = redir.Process(request, repl)
+		err = redir.Process(request, repl)
+		if err != nil {
+			return caddyhttp.Error(http.StatusGone, err)
+		}
 	}
 	// Pass control to the next handler
 	return next.ServeHTTP(writer, request)

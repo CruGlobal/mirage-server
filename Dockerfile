@@ -26,7 +26,8 @@ HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
 # Upgrade alpine packages (useful for security fixes)
 RUN apk upgrade --no-cache
 
-# Copy mirage config
+# Copy mirage config and html
 COPY Caddyfile /etc/caddy/Caddyfile
+COPY assets/html/ /srv
 
 CMD ["mirage", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
