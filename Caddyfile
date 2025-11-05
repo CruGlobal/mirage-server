@@ -91,9 +91,8 @@
 		redir {http.mirage.redirect.location} {http.mirage.redirect.status}
 	}
 
-	handle {
-		respond "Gone" 410 {
-			close
-		}
+	handle_errors {
+		rewrite * /error.html
+		file_server
 	}
 }

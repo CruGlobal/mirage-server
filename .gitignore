@@ -29,5 +29,7 @@
 !compose.yml
 !Caddyfile
 
+!/assets/html/**/*
+
 # ...even if they are in subdirectories
 !*/
