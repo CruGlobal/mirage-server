@@ -17,20 +17,23 @@ type Redirect struct {
 }
 
 func (r *Redirect) Process(request *http.Request, repl *caddy.Replacer) error {
+	if r.Location == "" {
+		return fmt.Errorf("location is empty (hostname: %s)", r.Hostname)
+	}
 	location, err := url.Parse(fmt.Sprintf("https://%s", r.Location))
 	if err != nil {
 		return err
 	}
-	repl.Set("http.mirage.type", r.Type.String())
 
 	location.Path = r.RewritePath(request.URL.Path, location.Path)
 
 	switch r.Type {
 	case TypeRedirect:
+		repl.Set("http.mirage.type", r.Type.String())
 		repl.Set("http.mirage.redirect.location", location.String())
 		repl.Set("http.mirage.redirect.status", r.Status.StatusCode())
 	case TypeProxy:
-		return nil
+		return fmt.Errorf("proxy not implmented (hostname: %s)", r.Hostname)
 	}
 
 	return nil

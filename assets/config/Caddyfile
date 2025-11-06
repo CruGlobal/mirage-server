@@ -29,19 +29,11 @@
 		on_demand
 	}
 
-    mirage
+	@redirect vars {http.mirage.type} REDIRECT
 
-	@mirageRedirect {
-		vars {http.mirage.type} REDIRECT
-	}
+	mirage
 
-	@mirageProxy {
-		vars {http.mirage.type} PROXY
-	}
-
-	handle @mirageRedirect {
-		redir {http.mirage.redirect.location} {http.mirage.redirect.status}
-	}
+	redir @redirect {http.mirage.redirect.location} {http.mirage.redirect.status}
 
 	handle {
 		respond "Gone" 410 {
