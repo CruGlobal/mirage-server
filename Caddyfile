@@ -1,0 +1,113 @@
+# Global config
+{
+	# Email address used with Let's Encrypt
+	email {$MIRAGE_TLS_EMAIL}
+
+	# Log in JSON by default
+	log {
+		level {$MIRAGE_LOG_LEVEL}
+		output stdout
+		format json
+		exclude tls.handshake events
+	}
+
+	# Caddy is run in a container so we don't need to persist the config
+	persist_config off
+
+	# Set ordering of mirage module earlier in the request processing
+	order mirage before redir
+
+	# Configure Mirage Server
+	mirage {
+		region us-east-1
+		table {$DYNAMODB_CONFIG_TABLE}
+		key {$DYNAMODB_CONFIG_KEY}
+	}
+
+	# Set the default Host when TLS ClientHello doesn't include one
+	default_sni {$MIRAGE_DEFAULT_SNI}
+
+	# Set Let's Encrypt as the CA (stage uses Let's Encrypt stage)
+	acme_ca {$MIRAGE_ACME_CA}
+
+	# No need to install caddy to the host trust store
+	skip_install_trust
+
+	# Configure On Demand TLS
+	on_demand_tls {
+		# Check DynamoDB for on demand certificate permission
+		permission dynamodb
+	}
+
+	servers {
+		# Set real ip if request forwarded from VPC (vpc-dc2d9fb9) CIDR
+		trusted_proxies static private_ranges 10.16.0.0/16
+	}
+
+	# Store certificates in DynamoDB
+	storage dynamodb {
+		table {$DYNAMODB_CERTS_TABLE}
+	}
+	storage_clean_interval 30d
+
+	# Disable Admin
+	admin off
+}
+
+# Reusable snippet for responding to load balancer health checks
+(health_check) {
+	handle /.ping {
+		log_skip
+		respond "pong" 200 {
+			close
+		}
+	}
+}
+
+# Default server on port 80 (http)
+:80 {
+	route {
+		# respond to health checks
+		import health_check
+
+		# Redirect all requests to HTTPS
+		redir https://{host}{uri} permanent
+	}
+}
+
+# Default server on port 443 (https)
+:443 {
+	# Enable on_demand TLS using Let'ts Encrypt (acme)
+	tls {
+		on_demand
+	}
+
+	# Matches the Default SNI Host
+	@mirage host {$MIRAGE_DEFAULT_SNI}
+
+	# Matches when Mirage has a redirect configured
+	@redirect vars {http.mirage.type} REDIRECT
+
+	route {
+		# respond to health checks
+		import health_check
+
+		# Display error page for default hostname
+		error @mirage 410
+
+		# Allow Mirage to parse the incomming request and setup redirect vars
+		mirage
+
+		# Perform redirect
+		redir @redirect {http.mirage.redirect.location} {http.mirage.redirect.status}
+
+		#all other requests are 410 error
+		error 410
+	}
+
+	# Rewrite all errors to error.html
+	handle_errors {
+		rewrite * /error.html
+		file_server
+	}
+}

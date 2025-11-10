@@ -1,0 +1,63 @@
+package redirect
+
+import (
+	"fmt"
+	"net/http"
+	"net/url"
+
+	"github.com/caddyserver/caddy/v2"
+)
+
+type Redirect struct {
+	Hostname string    `dynamodbav:"Hostname"`
+	Type     Type      `dynamodbav:"Type"`
+	Location string    `dynamodbav:"Location"`
+	Status   Status    `dynamodbav:"Status"`
+	Rewrites []Rewrite `dynamodbav:"Rewrites"`
+}
+
+func (r *Redirect) Process(request *http.Request, repl *caddy.Replacer) error {
+	if r.Location == "" {
+		return fmt.Errorf("location is empty (hostname: %s)", r.Hostname)
+	}
+	location, err := url.Parse(fmt.Sprintf("https://%s", r.Location))
+	if err != nil {
+		return err
+	}
+
+	location.Path = r.RewritePath(request.URL.Path, location.Path)
+
+	switch r.Type {
+	case TypeRedirect:
+		repl.Set("http.mirage.type", r.Type.String())
+		repl.Set("http.mirage.redirect.location", location.String())
+		repl.Set("http.mirage.redirect.status", r.Status.StatusCode())
+	case TypeProxy:
+		return fmt.Errorf("proxy not implmented (hostname: %s)", r.Hostname)
+	}
+
+	return nil
+}
+
+func (r *Redirect) RewritePath(requestPath string, locationPath string) string {
+	hasMatch := false
+	rewritePath := requestPath
+	if r.Rewrites != nil {
+		for _, rewrite := range r.Rewrites {
+			if rewrite.RegExp.Regexp == nil {
+				continue
+			}
+			if rewrite.RegExp.MatchString(rewritePath) {
+				hasMatch = true
+				rewritePath = rewrite.RegExp.ReplaceAllString(rewritePath, rewrite.Replace)
+				if rewrite.Final {
+					break
+				}
+			}
+		}
+	}
+	if !hasMatch {
+		return locationPath
+	}
+	return rewritePath
+}

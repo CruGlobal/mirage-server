@@ -1,0 +1,72 @@
+# https://taskfile.dev
+
+version: '3'
+
+tasks:
+  default:
+    cmds:
+      - task: fmt
+      - task: lint
+
+  build:
+    desc: Build the mirage app
+    cmds:
+      - go build -v -o mirage ./cmd/mirage
+
+  fmt:
+    desc: Format the code
+    cmds:
+      - golangci-lint fmt
+
+  lint:
+    desc: Lint the code
+    cmds:
+      - golangci-lint run --fix
+
+  run:
+    desc: Run the mirage app locally
+    env:
+      AWS_ACCESS_KEY_ID: DEVELOPMENTACCESSKEYID
+      AWS_SECRET_ACCESS_KEY: DEVELOPMENTSECRETACCESSKEY
+    cmds:
+      - go run ./cmd/mirage run --config assets/config/Caddyfile
+
+  "mirage:fmt":
+    desc: Format Caddyfile using mirage
+    cmds:
+      - go run ./cmd/mirage fmt --overwrite --config Caddyfile
+
+  "mirage:validate":
+    desc: Validate Caddyfile using mirage
+    env:
+      AWS_ACCESS_KEY_ID: DEVELOPMENTACCESSKEYID
+      AWS_SECRET_ACCESS_KEY: DEVELOPMENTSECRETACCESSKEY
+      MIRAGE_TLS_EMAIL: hello@example.com
+      MIRAGE_DEFAULT_SNI: example.com
+      MIRAGE_LOG_LEVEL: ERROR
+      DYNAMODB_CONFIG_TABLE: MirageServerConfigValidate
+      DYNAMODB_CONFIG_KEY: Hostname
+      MIRAGE_ACME_CA: https://acme-staging-v02.api.letsencrypt.org/directory
+      DYNAMODB_CERTS_TABLE: MirageServerCertificatesValidate
+    cmds:
+      - go run ./cmd/mirage validate --config Caddyfile
+
+
+  test:
+    desc: Run tests
+    env:
+      AWS_ACCESS_KEY_ID: TESTINGACCESSKEYID
+      AWS_SECRET_ACCESS_KEY: TESTINGSECRETACCESSKEY
+    silent: true
+    cmds:
+      - go test -cover -coverprofile coverage.out -covermode atomic -timeout 120s -parallel 1 {{.CLI_ARGS}} ./...
+
+  "dynamodb:start":
+    desc: Start the DynamoDB Local container. Used for tests or local development.
+    cmds:
+      - docker compose -f compose.yml up -d
+
+  "dynamodb:stop":
+    desc: Stop the DynamoDB Local container (all data is lost)
+    cmds:
+      - docker compose -f compose.yml down

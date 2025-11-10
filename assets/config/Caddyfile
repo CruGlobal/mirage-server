@@ -1,0 +1,43 @@
+# Caddyfile used for local development via `task run`
+{
+	debug
+	local_certs
+	skip_install_trust
+	http_port 8080
+	https_port 8443
+	admin off
+	order mirage before redir
+
+	mirage {
+		region us-east-1
+		endpoint http://localhost:8000
+		table MirageServerConfigDev
+		key Hostname
+	}
+
+	storage dynamodb {
+		table MirageServerCertificatesDev
+	}
+
+	on_demand_tls {
+		permission dynamodb
+	}
+}
+
+:8443 {
+	tls {
+		on_demand
+	}
+
+	@redirect vars {http.mirage.type} REDIRECT
+
+	mirage
+
+	redir @redirect {http.mirage.redirect.location} {http.mirage.redirect.status}
+
+	handle {
+		respond "Gone" 410 {
+			close
+		}
+	}
+}
