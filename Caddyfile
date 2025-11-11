@@ -82,27 +82,25 @@
 		on_demand
 	}
 
+	# respond to health checks
+	import health_check
+
 	# Matches the Default SNI Host
 	@mirage host {$MIRAGE_DEFAULT_SNI}
 
-	# Matches when Mirage has a redirect configured
-	@redirect vars {http.mirage.type} REDIRECT
+	handle @mirage {
+		file_server
+	}
 
-	route {
-		# respond to health checks
-		import health_check
-
-		# Display error page for default hostname
-		error @mirage 410
+	handle {
+		# Matches when Mirage has a redirect configured
+		@redirect vars {http.mirage.type} REDIRECT
 
 		# Allow Mirage to parse the incomming request and setup redirect vars
 		mirage
 
 		# Perform redirect
 		redir @redirect {http.mirage.redirect.location} {http.mirage.redirect.status}
-
-		#all other requests are 410 error
-		error 410
 	}
 
 	# Rewrite all errors to error.html
