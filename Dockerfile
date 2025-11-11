@@ -15,9 +15,9 @@ FROM public.ecr.aws/docker/library/caddy:${CADDY_VERSION}-alpine
 
 COPY --from=builder /usr/bin/mirage /usr/bin/mirage
 
-#LABEL com.datadoghq.ad.check_names='["openmetrics"]'
-#LABEL com.datadoghq.ad.init_configs='[{}]'
-#LABEL com.datadoghq.ad.instances='[{"openmetrics_endpoint": "http://%%host%%:81/metrics"}]'
+LABEL com.datadoghq.ad.check_names='["openmetrics"]'
+LABEL com.datadoghq.ad.init_configs='[{}]'
+LABEL com.datadoghq.ad.instances='[{"openmetrics_endpoint": "http://%%host%%:6000/metrics","namespace":"caddy","metrics":["caddy_http_.*"]}]'
 LABEL com.datadoghq.ad.logs='[{"source": "caddy"}]'
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
