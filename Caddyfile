@@ -85,6 +85,12 @@
 		on_demand
 	}
 
+	log {
+		level {$MIRAGE_LOG_LEVEL}
+		output stdout
+		format json
+	}
+
 	# respond to health checks
 	import health_check
 
