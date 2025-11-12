@@ -52,6 +52,9 @@
 
 	# Disable Admin
 	admin off
+
+	# Enable Prometheus metrics collection
+	metrics
 }
 
 # Reusable snippet for responding to load balancer health checks
@@ -82,6 +85,12 @@
 		on_demand
 	}
 
+	log {
+		level {$MIRAGE_LOG_LEVEL}
+		output stdout
+		format json
+	}
+
 	# respond to health checks
 	import health_check
 
@@ -108,4 +117,8 @@
 		rewrite * /error.html
 		file_server
 	}
+}
+
+:6000 {
+	metrics /metrics
 }
