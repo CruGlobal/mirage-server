@@ -113,6 +113,20 @@ var redirects = []redirect.Redirect{
 			},
 		},
 	},
+	{
+		Hostname:           "forward-qs.example.com",
+		Type:               redirect.TypeRedirect,
+		Status:             redirect.StatusTemporary,
+		Location:           "target.example.com",
+		ForwardQueryString: true,
+		Rewrites: []redirect.Rewrite{
+			{
+				RegExp:  redirect.RewriteRegexp{Regexp: regexp.MustCompile(`^(.*)$`)},
+				Replace: "$1",
+				Final:   true,
+			},
+		},
+	},
 }
 
 // SetupTest creates the table before each test.
@@ -168,6 +182,11 @@ func (ts *MirageTestSuite) TestMirage_GetRedirect() {
 			name:     "redirect with rewrites",
 			hostname: "www.example.info",
 			expect:   redirects[2],
+		},
+		{
+			name:     "redirect with forward query string",
+			hostname: "forward-qs.example.com",
+			expect:   redirects[3],
 		},
 		{
 			name:     "cached redirect",
@@ -239,6 +258,15 @@ func (ts *MirageTestSuite) TestMirage_ServeHTTP() {
 			expect: map[string]any{
 				"http.mirage.type":              redirect.TypeRedirect.String(),
 				"http.mirage.redirect.location": "https://example.info/foo/bar/baz",
+				"http.mirage.redirect.status":   redirect.StatusTemporary.StatusCode(),
+			},
+		},
+		{
+			name: "redirect with forwarded query string",
+			url:  "https://forward-qs.example.com/page?utm_source=google&utm_medium=cpc",
+			expect: map[string]any{
+				"http.mirage.type":              redirect.TypeRedirect.String(),
+				"http.mirage.redirect.location": "https://target.example.com/page?utm_source=google&utm_medium=cpc",
 				"http.mirage.redirect.status":   redirect.StatusTemporary.StatusCode(),
 			},
 		},
