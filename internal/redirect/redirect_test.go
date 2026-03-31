@@ -84,6 +84,68 @@ func TestRedirect_Prefix(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:      "forward query string",
+			url:       "https://www.example.com/path?foo=bar&baz=qux",
+			expectErr: false,
+			expect: map[string]any{
+				"http.mirage.type":              redirect.TypeRedirect.String(),
+				"http.mirage.redirect.location": "https://example.com/path?foo=bar&baz=qux",
+				"http.mirage.redirect.status":   redirect.StatusTemporary.StatusCode(),
+			},
+			redirect: redirect.Redirect{
+				Location:           "example.com",
+				ForwardQueryString: true,
+				Rewrites: []redirect.Rewrite{
+					{
+						RegExp:  redirect.RewriteRegexp{Regexp: regexp.MustCompile(`^(.*)$`)},
+						Replace: "$1",
+						Final:   true,
+					},
+				},
+			},
+		},
+		{
+			name:      "forward query string without query params",
+			url:       "https://www.example.com/path",
+			expectErr: false,
+			expect: map[string]any{
+				"http.mirage.type":              redirect.TypeRedirect.String(),
+				"http.mirage.redirect.location": "https://example.com/path",
+				"http.mirage.redirect.status":   redirect.StatusTemporary.StatusCode(),
+			},
+			redirect: redirect.Redirect{
+				Location:           "example.com",
+				ForwardQueryString: true,
+				Rewrites: []redirect.Rewrite{
+					{
+						RegExp:  redirect.RewriteRegexp{Regexp: regexp.MustCompile(`^(.*)$`)},
+						Replace: "$1",
+						Final:   true,
+					},
+				},
+			},
+		},
+		{
+			name:      "default does not forward query string",
+			url:       "https://www.example.com/path?foo=bar",
+			expectErr: false,
+			expect: map[string]any{
+				"http.mirage.type":              redirect.TypeRedirect.String(),
+				"http.mirage.redirect.location": "https://example.com/path",
+				"http.mirage.redirect.status":   redirect.StatusTemporary.StatusCode(),
+			},
+			redirect: redirect.Redirect{
+				Location: "example.com",
+				Rewrites: []redirect.Rewrite{
+					{
+						RegExp:  redirect.RewriteRegexp{Regexp: regexp.MustCompile(`^(.*)$`)},
+						Replace: "$1",
+						Final:   true,
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

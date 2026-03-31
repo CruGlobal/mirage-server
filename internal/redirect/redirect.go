@@ -9,11 +9,12 @@ import (
 )
 
 type Redirect struct {
-	Hostname string    `dynamodbav:"Hostname"`
-	Type     Type      `dynamodbav:"Type"`
-	Location string    `dynamodbav:"Location"`
-	Status   Status    `dynamodbav:"Status"`
-	Rewrites []Rewrite `dynamodbav:"Rewrites"`
+	Hostname           string    `dynamodbav:"Hostname"`
+	Type               Type      `dynamodbav:"Type"`
+	Location           string    `dynamodbav:"Location"`
+	Status             Status    `dynamodbav:"Status"`
+	Rewrites           []Rewrite `dynamodbav:"Rewrites"`
+	ForwardQueryString bool      `dynamodbav:"ForwardQueryString"`
 }
 
 func (r *Redirect) Process(request *http.Request, repl *caddy.Replacer) error {
@@ -26,6 +27,10 @@ func (r *Redirect) Process(request *http.Request, repl *caddy.Replacer) error {
 	}
 
 	location.Path = r.RewritePath(request.URL.Path, location.Path)
+
+	if r.ForwardQueryString {
+		location.RawQuery = request.URL.RawQuery
+	}
 
 	switch r.Type {
 	case TypeRedirect:
