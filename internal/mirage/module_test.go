@@ -127,6 +127,13 @@ var redirects = []redirect.Redirect{
 			},
 		},
 	},
+	{
+		Hostname: "noindex.example.com",
+		Type:     redirect.TypeRedirect,
+		Status:   redirect.StatusTemporary,
+		Location: "example.com",
+		NoIndex:  true,
+	},
 }
 
 // SetupTest creates the table before each test.
@@ -228,6 +235,7 @@ func (ts *MirageTestSuite) TestMirage_ServeHTTP() {
 		url             string
 		expect          map[string]any
 		unknownRedirect bool
+		expectNoIndex   bool
 	}{
 		{
 			name: "temporary redirect",
@@ -270,6 +278,16 @@ func (ts *MirageTestSuite) TestMirage_ServeHTTP() {
 				"http.mirage.redirect.status":   redirect.StatusTemporary.StatusCode(),
 			},
 		},
+		{
+			name: "noindex redirect sets X-Robots-Tag",
+			url:  "https://noindex.example.com",
+			expect: map[string]any{
+				"http.mirage.type":              redirect.TypeRedirect.String(),
+				"http.mirage.redirect.location": "https://example.com",
+				"http.mirage.redirect.status":   redirect.StatusTemporary.StatusCode(),
+			},
+			expectNoIndex: true,
+		},
 	}
 	for _, tt := range tests {
 		ts.Run(tt.name, func() {
@@ -286,6 +304,12 @@ func (ts *MirageTestSuite) TestMirage_ServeHTTP() {
 			ts.Require().NoError(err)
 			ts.Require().Equal("mirage", w.Header().Get("Server"))
 			mockHandler.AssertNumberOfCalls(ts.T(), "ServeHTTP", 1)
+
+			if tt.expectNoIndex {
+				ts.Equal("noindex", w.Header().Get("X-Robots-Tag"))
+			} else {
+				ts.Empty(w.Header().Get("X-Robots-Tag"))
+			}
 
 			if tt.unknownRedirect {
 				_, exists := repl.Get("http.mirage.type")
