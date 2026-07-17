@@ -15,6 +15,7 @@ type Redirect struct {
 	Status             Status    `dynamodbav:"Status"`
 	Rewrites           []Rewrite `dynamodbav:"Rewrites"`
 	ForwardQueryString bool      `dynamodbav:"ForwardQueryString"`
+	NoIndex            bool      `dynamodbav:"NoIndex"`
 }
 
 func (r *Redirect) Process(request *http.Request, repl *caddy.Replacer) error {

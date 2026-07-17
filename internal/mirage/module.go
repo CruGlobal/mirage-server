@@ -109,6 +109,11 @@ func (r Mirage) ServeHTTP(writer http.ResponseWriter, request *http.Request, nex
 		if err != nil {
 			return caddyhttp.Error(http.StatusGone, err)
 		}
+
+		// Tell search engines not to index redirects flagged NoIndex
+		if redir.NoIndex {
+			writer.Header().Set("X-Robots-Tag", "noindex")
+		}
 	}
 	// Pass control to the next handler
 	return next.ServeHTTP(writer, request)
