@@ -31,3 +31,10 @@ COPY Caddyfile /etc/caddy/Caddyfile
 COPY assets/html/ /srv
 
 CMD ["mirage", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+
+# Build identity -> Datadog version (D10 bare suffix, e.g. 2026-07-31-42).
+# Passed by build-candidate as --build-arg VERSION; "dev" for local builds.
+# Kept last on purpose: nothing in the build reads it, so a new build number
+# invalidates no earlier layer.
+ARG VERSION="dev"
+ENV DD_VERSION=${VERSION}

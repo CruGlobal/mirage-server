@@ -1,10 +1,11 @@
 name: Build & Deploy ECS
 
 on:
-  push:
-    branches:
-      - main
-      - staging
+  # Parked v1 escape hatch — do not re-add push triggers. This app builds and
+  # deploys through .github/workflows/pipeline-v2.yml; this workflow stays
+  # dispatch-only so the v1 build+deploy path is still reachable by hand.
+  # Restoring the push trigger on main would double-build every merge and push
+  # v1's environment-specific `production-<n>` tags alongside v2's candidates.
   workflow_dispatch:
     # Allows manual build and deploy of any branch/ref
     inputs:
