@@ -23,6 +23,8 @@
 !README.md
 !LICENSE
 !CONTRIBUTING.md
+!AGENTS.md
+!CLAUDE.md
 
 !build.sh
 !Dockerfile
