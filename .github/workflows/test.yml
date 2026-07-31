@@ -59,7 +59,7 @@ jobs:
       - uses: go-task/setup-task@v1
       - run: go mod download
       - run: task test
-      - uses: codecov/codecov-action@v5
+      - uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: CruGlobal/mirage-server
