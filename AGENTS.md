@@ -101,17 +101,22 @@ flow. If you find those referenced anywhere, the reference is stale.
 4. **A build produces a candidate.** It pushes `candidate-<yyyy-mm-dd>-<n>` and
    `sha-<gitsha>` to the app's ECR repo
    (`056154071827.dkr.ecr.us-east-1.amazonaws.com/mirage-server`), then
-   dispatches a deploy of that candidate to **release-candidate**. A night with
-   no new commits is a true end-to-end no-op: the build reuses the already-built
-   sha, and the deploy skips a digest release-candidate is already running.
-5. **Promotion and rollback live in
-   [`cru-deploy`](https://github.com/CruGlobal/cru-deploy)**, not here — the
-   **Promote (v2)** and **Rollback (v2)** `workflow_dispatch` Actions. Promote
-   re-deploys the exact digest already running on release-candidate and stamps it
-   `release-<yyyy-mm-dd>-<n>`; it first checks that the person dispatching it has
-   **push permission on this repo**. `release-*` tags are permanent, so any past
-   release stays rollback-able. **Deploy Candidate (v2)** (`force: true`) is the
-   force-redeploy escape hatch.
+   starts a deploy of that candidate to **release-candidate** through the
+   **deploy gate** (`deploys.cru.org/gate`), with the run's GitHub OIDC token.
+   The deploy job has no org token: if the deploy gate refuses or can't be
+   reached, the deploy fails. A night with no new commits is a true end-to-end
+   no-op: the build reuses the already-built sha, and the deploy skips a digest
+   release-candidate is already running.
+5. **Promotion and rollback run in
+   [`cru-deploy`](https://github.com/CruGlobal/cru-deploy)**, not here, started
+   with `cru app promote -n mirage-server` /
+   `cru app rollback -n mirage-server <release>`. The CLI signs you in with Okta
+   and sends the request through the deploy gate, which allows it only for the
+   developers listed in this app's Terraform; push access to this repo does not
+   count. Promote re-deploys the exact digest already running on
+   release-candidate and stamps it `release-<yyyy-mm-dd>-<n>`. `release-*` tags
+   are permanent, so any past release stays rollback-able. **Deploy Candidate
+   (v2)** (`force: true`) is DevOps' force-redeploy escape hatch.
 6. **Slack.** Every deploy, promote, and rollback — and every failure, as an
    `:x:` message — posts to **`#devops-notifications`**, the channel in this
    app's `CruApplicationInfo` row (`SlackChannel`), with a
